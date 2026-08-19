@@ -1,0 +1,42 @@
+[
+  {
+    "id": "user_student_1",
+    "name": "Aarav Sharma",
+    "email": "student@hometutor.com",
+    "phone": "+91 98765 43210",
+    "password": "$2b$10$VUaLo9znYb7a6j9f2xab1uBZw0sl.slfYNTkiBKegB8DXwwvZQRCK",
+    "role": "student"
+  },
+  {
+    "id": "user_tutor_1",
+    "name": "Dr. Sarah Jenkins",
+    "email": "tutor@hometutor.com",
+    "phone": "+91 98765 43211",
+    "password": "$2b$10$VUaLo9znYb7a6j9f2xab1uBZw0sl.slfYNTkiBKegB8DXwwvZQRCK",
+    "role": "tutor"
+  },
+  {
+    "id": "user_parent_1",
+    "name": "Rajesh Sharma",
+    "email": "parent@hometutor.com",
+    "phone": "+91 98765 43212",
+    "password": "$2b$10$VUaLo9znYb7a6j9f2xab1uBZw0sl.slfYNTkiBKegB8DXwwvZQRCK",
+    "role": "parent"
+  },
+  {
+    "id": "user_admin_1",
+    "name": "System Administrator",
+    "email": "admin@hometutor.com",
+    "phone": "+91 98765 43213",
+    "password": "$2b$10$VUaLo9znYb7a6j9f2xab1uBZw0sl.slfYNTkiBKegB8DXwwvZQRCK",
+    "role": "admin"
+  },
+  {
+    "id": "user_mahima",
+    "name": "Mahima R",
+    "email": "mahimarathi36@gmail.com",
+    "phone": "+91 98765 00000",
+    "password": "$2b$10$VUaLo9znYb7a6j9f2xab1uBZw0sl.slfYNTkiBKegB8DXwwvZQRCK",
+    "role": "student"
+  }
+]

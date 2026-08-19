@@ -1,0 +1,116 @@
+/**
+ * Centralized API Service for Student Dashboard Operations
+ */
+
+export const studentApi = {
+  // Fetch Authenticated Student User Profile
+  getProfile: async () => {
+    const res = await fetch('/api/student/profile');
+    return await res.json();
+  },
+
+  // Fetch Dashboard Stats & Aggregates
+  getDashboardStats: async () => {
+    const res = await fetch('/api/student/dashboard-stats');
+    return await res.json();
+  },
+
+  // Fetch All Tutors with Filters & GPS coordinates
+  getTutors: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    if (filters.subject && filters.subject !== 'all') queryParams.append('subject', filters.subject);
+    if (filters.board && filters.board !== 'all') queryParams.append('board', filters.board);
+    if (filters.grade && filters.grade !== 'all') queryParams.append('class', filters.grade);
+    if (filters.feeMax) queryParams.append('fee', filters.feeMax);
+    if (filters.search) queryParams.append('search', filters.search);
+    if (filters.location) queryParams.append('location', filters.location);
+    if (filters.lat) queryParams.append('lat', filters.lat);
+    if (filters.lng) queryParams.append('lng', filters.lng);
+    if (filters.radius && filters.radius !== 'all') queryParams.append('radius', filters.radius);
+
+    const res = await fetch(`/api/tutor/all?${queryParams.toString()}`);
+    return await res.json();
+  },
+
+  // Book Demo Class or Tuition
+  bookTutor: async (payload) => {
+    const res = await fetch('/api/student/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  },
+
+  // Fetch Student Bookings
+  getBookings: async () => {
+    const res = await fetch('/api/student/bookings');
+    return await res.json();
+  },
+
+  // Cancel Booking
+  cancelBooking: async (bookingId) => {
+    const res = await fetch(`/api/student/booking/${bookingId}/cancel`, {
+      method: 'PUT',
+    });
+    return await res.json();
+  },
+
+  // Toggle Favorite Tutor
+  toggleFavorite: async (tutorProfileId) => {
+    const res = await fetch(`/api/student/favorite/${tutorProfileId}`, {
+      method: 'POST',
+    });
+    return await res.json();
+  },
+
+  // Wallet Top-up
+  topupWallet: async (amount) => {
+    const res = await fetch('/api/student/wallet/topup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount }),
+    });
+    return await res.json();
+  },
+
+  // Submit Review & Rating
+  addReview: async (payload) => {
+    const res = await fetch('/api/student/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  },
+
+  // Get Existing Review for a Tutor
+  getReviewForTutor: async (tutorProfileId) => {
+    const res = await fetch(`/api/student/review/${tutorProfileId}`);
+    return await res.json();
+  },
+
+  // Fetch Study Materials & Notes
+  getStudyMaterials: async () => {
+    const res = await fetch('/api/student/study-materials');
+    return await res.json();
+  },
+
+  // Fetch Certificates
+  getCertificates: async () => {
+    const res = await fetch('/api/student/certificates');
+    return await res.json();
+  },
+
+  // Fetch Referrals History
+  getReferrals: async () => {
+    const res = await fetch('/api/student/referrals');
+    return await res.json();
+  },
+
+  // Fetch Class Schedule
+  getClassSchedule: async () => {
+    const res = await fetch('/api/student/class-schedule');
+    return await res.json();
+  },
+};

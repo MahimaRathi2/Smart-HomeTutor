@@ -1,0 +1,31 @@
+/* ==========================================================================
+   TUTOR DASHBOARD SPECIFIC STYLES
+   ========================================================================== */
+
+@import './dashboard-common.css';
+
+.tutor-status-banner {
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.tutor-status-banner.pending {
+  background: #fefce8;
+  border-color: #fef08a;
+  color: #854d0e;
+}
+
+.payout-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+}

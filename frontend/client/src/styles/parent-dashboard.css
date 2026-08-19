@@ -1,0 +1,14 @@
+/* ==========================================================================
+   PARENT DASHBOARD SPECIFIC STYLES
+   ========================================================================== */
+
+@import './dashboard-common.css';
+
+.parent-child-chip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: #f3e8ff;
+  color: #6b21a8;
+  font-weight: 700;
+  cursor: pointer;
+}
