@@ -277,7 +277,7 @@ export const SocketCallListener = () => {
               width: '80px',
               height: '80px',
               borderRadius: '50%',
-              background: 'rgba(2, 132, 199, 0.2)',
+              background: 'rgba(48, 137, 181, 0.2)',
               color: '#38bdf8',
               display: 'inline-flex',
               alignItems: 'center',

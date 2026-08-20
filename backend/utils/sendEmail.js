@@ -85,17 +85,18 @@ const sendVerificationEmail = async ({ to, otp, name }) => {
   };
 
   try {
+    console.log(`📤 [EMAIL SERVICE] Delivering verification email to ${normalizedEmail}...`);
     const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Real Verification Email Sent via Nodemailer SMTP:", info.messageId || info.response);
+    console.log("✅ [EMAIL SERVICE SUCCESS] Real Verification Email Sent via Nodemailer SMTP:", info.messageId || info.response);
     return info;
   } catch (err) {
-    console.error("❌ Nodemailer SMTP Delivery Error:", err.message);
-    console.log(`💡 [FALLBACK OTP LOGGED]: Use OTP code ${otp} for email ${normalizedEmail}`);
-    return { success: true, isFallback: true, messageId: "fallback-otp" };
+    console.error("❌ [EMAIL SERVICE ERROR] Nodemailer SMTP Delivery Error:", err.message);
+    throw err;
   }
 };
 
-/** * Send Password Reset OTP email via Nodemailer SMTP
+/**
+ * Send Password Reset OTP email via Nodemailer SMTP
  * @param {Object} options
  * @param {string} options.to - Recipient email address
  * @param {string} options.otp - 6-digit OTP code
@@ -114,11 +115,8 @@ const sendPasswordResetEmail = async ({ to, otp, name }) => {
   const pass = process.env.SMTP_PASS || "";
   const from = process.env.EMAIL_FROM || `"Smart HomeTutor" <${user}>`;
 
-  
   console.log(`📧 [PASSWORD RESET OTP GENERATED] Recipient: ${normalizedEmail}`);
   console.log(`🔑 [RESET VERIFICATION CODE]: ${otp}`);
-
-
 
   const isPlaceholder = !user || !pass || pass === "app_password_placeholder";
 
@@ -174,13 +172,13 @@ const sendPasswordResetEmail = async ({ to, otp, name }) => {
   };
 
   try {
+    console.log(`📤 [EMAIL SERVICE] Delivering password reset email to ${normalizedEmail}...`);
     const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Real Password Reset Email Sent via Nodemailer SMTP:", info.messageId || info.response);
+    console.log("✅ [EMAIL SERVICE SUCCESS] Real Password Reset Email Sent via Nodemailer SMTP:", info.messageId || info.response);
     return info;
   } catch (err) {
-    console.error("❌ Nodemailer SMTP Delivery Error:", err.message);
-    console.log(`💡 [FALLBACK RESET OTP LOGGED]: Use Reset OTP code ${otp} for email ${normalizedEmail}`);
-    return { success: true, isFallback: true, messageId: "fallback-reset-otp" };
+    console.error("❌ [EMAIL SERVICE ERROR] Nodemailer SMTP Delivery Error:", err.message);
+    throw err;
   }
 };
 

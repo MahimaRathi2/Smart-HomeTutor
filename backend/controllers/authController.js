@@ -56,13 +56,16 @@ exports.signup = async (req, res) => {
   try {
     const { name, firstName, lastName, email, phone, password, role, referredBy, referralCode } = req.body;
 
+    console.log(`📥 [REGISTRATION REQUEST] Incoming signup for email: ${email || "N/A"}, role: ${role || "student"}`);
+
     if (!email || !password) {
-      const msg = "Please enter a valid email address.";
+      const msg = "Please enter both email address and password.";
       if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
       return res.redirect("/signup?error=" + encodeURIComponent(msg));
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
+    console.log(`📧 [REGISTRATION EMAIL] Normalized recipient: ${normalizedEmail}`);
 
     if (role && String(role).toLowerCase().trim() === "admin") {
       const msg = "Admin accounts cannot be created via public registration.";
@@ -84,7 +87,7 @@ exports.signup = async (req, res) => {
       return res.redirect("/signup?error=" + encodeURIComponent(msg));
     }
     if (!isValidEmailFormat(normalizedEmail)) {
-      const msg = "Please enter a valid email address.";
+      const msg = "Please enter a valid email address format.";
       if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
       return res.redirect("/signup?error=" + encodeURIComponent(msg));
     }
@@ -97,21 +100,27 @@ exports.signup = async (req, res) => {
         if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
         return res.redirect("/signup?error=" + encodeURIComponent(msg));
       } else {
-        //  resend verification email
+        // Resend verification email for unverified user
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        console.log(`🎲 [OTP GENERATED] Resend OTP code for unverified account: ${normalizedEmail}`);
+
         existingUser.otp = otpCode;
         existingUser.otpExpires = Date.now() + 10 * 60 * 1000;
         await existingUser.save();
+        console.log(`💾 [OTP SAVED] Resend OTP saved to database for ${normalizedEmail}. Expiry: 10 minutes.`);
 
         try {
+          console.log(`📤 [EMAIL SENDING STARTED] Sending verification email to ${normalizedEmail}...`);
           await sendVerificationEmail({ to: normalizedEmail, otp: otpCode, name: existingUser.name });
+          console.log(`✅ [EMAIL SENDING SUCCESSFUL] OTP email delivered to ${normalizedEmail}.`);
         } catch (emailErr) {
-          const msg = "Please enter a valid email address.";
-          if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
+          console.error(`❌ [EMAIL SERVICE ERROR] Failed to deliver OTP to ${normalizedEmail}:`, emailErr.message);
+          const msg = "Failed to send verification email. Please check your email configuration or try again.";
+          if (isJsonRequest) return res.status(500).json({ success: false, message: msg });
           return res.redirect("/signup?error=" + encodeURIComponent(msg));
         }
 
-        const msg = `Verification email sent to ${normalizedEmail}! Please enter your OTP to verify.`;
+        const msg = `Verification email sent to ${normalizedEmail}! Please enter your OTP code to verify.`;
         if (isJsonRequest) {
           return res.status(200).json({
             success: true,
@@ -134,6 +143,8 @@ exports.signup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newReferralCode = "REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    console.log(`🎲 [OTP GENERATED] New user OTP generated for ${normalizedEmail}.`);
 
     let initialWallet = 0;
     let validReferredBy = "";
@@ -178,13 +189,16 @@ exports.signup = async (req, res) => {
     }
 
     try {
+      console.log(`📤 [EMAIL SENDING STARTED] Sending verification email to ${normalizedEmail}...`);
       await sendVerificationEmail({ to: normalizedEmail, otp: otpCode, name: fullName });
+      console.log(`✅ [EMAIL SENDING SUCCESSFUL] OTP email delivered to ${normalizedEmail}.`);
     } catch (emailDeliveryErr) {
-      console.error("Email verification delivery failed:", emailDeliveryErr.message);
-      const msg = "Please enter a valid email address.";
-      if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
+      console.error(`❌ [EMAIL SERVICE ERROR] Delivery failed for ${normalizedEmail}:`, emailDeliveryErr.message);
+      const msg = "Failed to send verification email. Please try again.";
+      if (isJsonRequest) return res.status(500).json({ success: false, message: msg });
       return res.redirect("/signup?error=" + encodeURIComponent(msg));
     }
+
     const user = await User.create({
       name: fullName,
       email: normalizedEmail,
@@ -199,6 +213,8 @@ exports.signup = async (req, res) => {
       otpExpires: Date.now() + 10 * 60 * 1000,
     });
 
+    console.log(`💾 [OTP SAVED] User record created and OTP saved in database for ${normalizedEmail}. Expiry: 10 minutes.`);
+
     if (initialWallet > 0) {
       await Transaction.create({
         user: user._id,
@@ -210,6 +226,7 @@ exports.signup = async (req, res) => {
     }
 
     await logUserActivity(user._id, `User initiated registration. Verification email sent to ${normalizedEmail}`, req.ip);
+
     const successMsg = `Verification email sent successfully to ${normalizedEmail}! Please enter your 6-digit OTP code below to verify your account.`;
     if (isJsonRequest) {
       return res.status(201).json({
@@ -224,8 +241,8 @@ exports.signup = async (req, res) => {
     return res.redirect("/verify-otp?email=" + encodeURIComponent(normalizedEmail) + "&message=" + encodeURIComponent(successMsg));
 
   } catch (error) {
-    console.error("Signup Error:", error);
-    const msg = "Please enter a valid email address.";
+    console.error("❌ [SIGNUP ERROR]:", error.message || error);
+    const msg = error.message || "Registration failed due to a server error. Please try again.";
     if (isJsonRequest) return res.status(500).json({ success: false, message: msg });
     return res.redirect("/signup?error=" + encodeURIComponent(msg));
   }
@@ -383,6 +400,8 @@ exports.updateLanguage = async (req, res) => {
 exports.sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
+    console.log(`📥 [SEND OTP REQUEST] Received OTP request for email: ${email || "N/A"}`);
+
     if (!email || !isValidEmailFormat(email)) {
       return res.status(400).json({ success: false, message: "Please enter a valid email address." });
     }
@@ -391,17 +410,24 @@ exports.sendOTP = async (req, res) => {
     const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "No account found with this email." });
+      return res.status(404).json({ success: false, message: "No account found with this email address." });
     }
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`🎲 [OTP GENERATED] Resend OTP generated for ${normalizedEmail}.`);
+
     user.otp = otpCode;
     user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
     await user.save();
+    console.log(`💾 [OTP SAVED] Resend OTP saved to database for ${normalizedEmail}. Expiry: 10 minutes.`);
+
     try {
+      console.log(`📤 [EMAIL SENDING STARTED] Resending OTP email to ${normalizedEmail}...`);
       await sendVerificationEmail({ to: normalizedEmail, otp: otpCode, name: user.name });
+      console.log(`✅ [EMAIL SENDING SUCCESSFUL] Resend OTP email delivered to ${normalizedEmail}.`);
     } catch (emailErr) {
-      return res.status(400).json({ success: false, message: "Please enter a valid email address." });
+      console.error(`❌ [EMAIL SERVICE ERROR] Resend OTP delivery failed for ${normalizedEmail}:`, emailErr.message);
+      return res.status(500).json({ success: false, message: "Failed to send verification email. Please try again." });
     }
 
     return res.status(200).json({
@@ -409,8 +435,8 @@ exports.sendOTP = async (req, res) => {
       message: `Verification email sent successfully to ${user.email}.`,
     });
   } catch (err) {
-    console.error("Send OTP Error:", err);
-    return res.status(500).json({ success: false, message: "Please enter a valid email address." });
+    console.error("❌ [SEND OTP ERROR]:", err.message || err);
+    return res.status(500).json({ success: false, message: err.message || "Server Error sending OTP." });
   }
 };
 
