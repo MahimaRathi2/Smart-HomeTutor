@@ -16,6 +16,7 @@ import { AnnouncementModal } from '../../components/admin/modals/AnnouncementMod
 import { SecurityCenterModal } from '../../components/admin/modals/SecurityCenterModal';
 import { AddSubjectModal } from '../../components/admin/modals/AddSubjectModal';
 import { AdminBlogModal } from '../../components/admin/modals/AdminBlogModal';
+import { CreateScheduleModal } from '../../components/common/CreateScheduleModal';
 
 export const AdminDashboardPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -39,6 +40,7 @@ export const AdminDashboardPage = () => {
   const [selectedGradeForModal, setSelectedGradeForModal] = useState('');
   const [isBlogModalOpen, setIsBlogModalOpen] = useState(false);
   const [blogToEdit, setBlogToEdit] = useState(null);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   useEffect(() => {
     loadAllAdminData();
@@ -131,7 +133,10 @@ export const AdminDashboardPage = () => {
     try {
       const res = await adminApi.approveCertificate(certId);
       if (res.success) {
-        setCertificateRequests((prev) => prev.filter((c) => c._id !== certId));
+        setCertificateRequests((prev) =>
+          prev.map((c) => (c._id === certId ? { ...c, status: 'Approved' } : c))
+        );
+        loadAllAdminData();
       } else {
         alert(res.message || 'Failed to approve certificate.');
       }
@@ -144,7 +149,10 @@ export const AdminDashboardPage = () => {
     try {
       const res = await adminApi.rejectCertificate(certId);
       if (res.success) {
-        setCertificateRequests((prev) => prev.filter((c) => c._id !== certId));
+        setCertificateRequests((prev) =>
+          prev.map((c) => (c._id === certId ? { ...c, status: 'Rejected' } : c))
+        );
+        loadAllAdminData();
       } else {
         alert(res.message || 'Failed to reject certificate.');
       }
@@ -277,6 +285,7 @@ export const AdminDashboardPage = () => {
         <AdminHeaderBar
           onOpenAnnouncement={() => setIsAnnouncementOpen(true)}
           onExportPdf={handleExportPdf}
+          onOpenScheduleClass={() => setIsScheduleModalOpen(true)}
         />
 
 
@@ -387,6 +396,13 @@ export const AdminDashboardPage = () => {
         onClose={() => { setIsBlogModalOpen(false); setBlogToEdit(null); }}
         blogToEdit={blogToEdit}
         onSuccess={loadAllAdminData}
+      />
+
+      <CreateScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        onSuccess={loadAllAdminData}
+        userRole="admin"
       />
     </div>
   );

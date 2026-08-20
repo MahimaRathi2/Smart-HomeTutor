@@ -63,5 +63,15 @@ export const tutorApi = {
       body: JSON.stringify({ amount, upiId })
     });
     return res.json();
+  },
+
+  // Request course completion certificate
+  async requestCertificate(data) {
+    const res = await fetch('/api/tutor/request-certificate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
   }
 };

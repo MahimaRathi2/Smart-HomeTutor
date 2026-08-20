@@ -221,7 +221,7 @@ app.get("/api/certificates/:certId", async (req, res) => {
   }
 });
 
-app.use("/video-call", videoCallRoutes);
+app.use("/api/video-call", videoCallRoutes);
 app.post("/login", authController.login);
 app.post("/signup", authController.signup);
 app.get("/logout", authController.logout);

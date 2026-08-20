@@ -266,8 +266,8 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
                             {name}
                           </strong>
                           {c.unreadCount > 0 && (
-                            <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px' }}>
-                              🔴 {c.unreadCount}
+                            <span style={{ background: '#dc2626', color: '#ffffff', fontSize: '10.5px', fontWeight: '800', padding: '2px 7px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <i className="fa-solid fa-circle" style={{ fontSize: '6px' }}></i> {c.unreadCount}
                             </span>
                           )}
                         </div>

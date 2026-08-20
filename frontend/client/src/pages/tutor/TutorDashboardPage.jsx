@@ -10,6 +10,7 @@ import { TutorHomeworkTab } from '../../components/tutor/tabs/TutorHomeworkTab';
 import { TutorChatTab } from '../../components/tutor/tabs/TutorChatTab';
 import { TutorRatesTab } from '../../components/tutor/tabs/TutorRatesTab';
 import { PayoutModal } from '../../components/tutor/modals/PayoutModal';
+import { RequestCertificateModal } from '../../components/tutor/modals/RequestCertificateModal';
 
 import { NotificationsTab } from '../../components/common/NotificationsTab';
 
@@ -25,6 +26,7 @@ export const TutorDashboardPage = () => {
   const [reviews, setReviews] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
+  const [isCertModalOpen, setIsCertModalOpen] = useState(false);
 
   const fetchUnreadNotifications = async () => {
     try {
@@ -129,63 +131,10 @@ export const TutorDashboardPage = () => {
 
       {/* MAIN CONTENT AREA */}
       <main className="dashboard-main">
-        <TutorHeaderBar onRequestPayout={() => setIsPayoutModalOpen(true)} />
-
-        {/* TABS NAVIGATION */}
-        <div className="dash-tabs">
-          <button
-            className={`dash-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            <i className="fa-solid fa-chart-pie"></i> Overview
-          </button>
-          <button
-            className={`dash-tab-btn ${activeTab === 'notifications' ? 'active' : ''}`}
-            onClick={() => setActiveTab('notifications')}
-          >
-            <i className="fa-solid fa-bell"></i> Notifications
-            {unreadNotifications > 0 && (
-              <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', marginLeft: '4px' }}>
-                {unreadNotifications}
-              </span>
-            )}
-          </button>
-          <button
-            className={`dash-tab-btn ${activeTab === 'sessions' ? 'active' : ''}`}
-            onClick={() => setActiveTab('sessions')}
-          >
-            <i className="fa-solid fa-chalkboard-user"></i> Sessions
-          </button>
-          <button
-            className={`dash-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}
-          >
-            <i className="fa-solid fa-envelope-open-text"></i> Requests
-            {pendingRequests.length > 0 && (
-              <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', marginLeft: '4px' }}>
-                {pendingRequests.length}
-              </span>
-            )}
-          </button>
-          <button
-            className={`dash-tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
-            onClick={() => setActiveTab('chat')}
-          >
-            <i className="fa-solid fa-comments"></i> Student Chat
-          </button>
-          <button
-            className={`dash-tab-btn ${activeTab === 'assignments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('assignments')}
-          >
-            <i className="fa-solid fa-file-arrow-up"></i> Homework
-          </button>
-          <button
-            className={`dash-tab-btn ${activeTab === 'rates-availability' ? 'active' : ''}`}
-            onClick={() => setActiveTab('rates-availability')}
-          >
-            <i className="fa-solid fa-sliders"></i> Rates & Slots
-          </button>
-        </div>
+        <TutorHeaderBar
+          onRequestPayout={() => setIsPayoutModalOpen(true)}
+          onRequestCertificate={() => setIsCertModalOpen(true)}
+        />
 
         {/* TAB CONTENT RENDERING */}
         {loading ? (
@@ -213,7 +162,7 @@ export const TutorDashboardPage = () => {
             )}
 
             {activeTab === 'sessions' && (
-              <TutorSessionsTab sessions={schedule} />
+              <TutorSessionsTab sessions={schedule} onRefresh={loadDashboardData} />
             )}
 
             {activeTab === 'requests' && (
@@ -247,6 +196,13 @@ export const TutorDashboardPage = () => {
         isOpen={isPayoutModalOpen}
         onClose={() => setIsPayoutModalOpen(false)}
         availableBalance={stats?.netEarnings || 0}
+        onSuccess={loadDashboardData}
+      />
+
+      {/* CERTIFICATE REQUEST MODAL */}
+      <RequestCertificateModal
+        isOpen={isCertModalOpen}
+        onClose={() => setIsCertModalOpen(false)}
         onSuccess={loadDashboardData}
       />
     </div>

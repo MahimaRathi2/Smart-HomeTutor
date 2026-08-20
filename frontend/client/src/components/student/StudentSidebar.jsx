@@ -7,10 +7,11 @@ export const StudentSidebar = ({ activeTab, onSelectTab, studentUser, onOpenCert
 
   const menuItems = [
     { key: 'overview', label: 'Overview & Progress', icon: 'fa-house' },
+    { key: 'notifications', label: 'Notifications', icon: 'fa-bell', badge: unreadCount },
     { key: 'search-tutors', label: 'Find & Book Tutors', icon: 'fa-magnifying-glass' },
     { key: 'schedule', label: 'Scheduled Classes', icon: 'fa-calendar-days' },
     { key: 'learning', label: 'Homework & Notes', icon: 'fa-book-open-reader' },
-    { key: 'chat', label: 'Messages & Video Call', icon: 'fa-comments' },
+    { key: 'chat', label: 'Messages', icon: 'fa-comments' },
     { key: 'payments', label: 'Smart Wallet & Billing', icon: 'fa-wallet' },
   ];
 

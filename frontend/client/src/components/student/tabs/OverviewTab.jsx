@@ -6,6 +6,7 @@ export const OverviewTab = ({
   upcomingClasses,
   referralCode,
   referralEarnings,
+  referredCount = 0,
   onOpenAIRecommendations,
   onOpenReviewModal,
   onStartVideoCall,
@@ -13,11 +14,10 @@ export const OverviewTab = ({
   const [copied, setCopied] = useState(false);
 
   const copyReferralCode = () => {
-    if (referralCode) {
-      navigator.clipboard.writeText(referralCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    const codeToCopy = referralCode || 'SMART100';
+    navigator.clipboard.writeText(codeToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const statItems = [
@@ -163,7 +163,7 @@ export const OverviewTab = ({
               </div>
               <div style={{ flex: 1, background: '#dcfce7', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
                 <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 700, display: 'block' }}>Friends Referred</span>
-                <strong style={{ fontSize: '16px', color: '#16a34a' }}>0 Friends</strong>
+                <strong style={{ fontSize: '16px', color: '#16a34a' }}>{referredCount} {referredCount === 1 ? 'Friend' : 'Friends'}</strong>
               </div>
             </div>
           </div>

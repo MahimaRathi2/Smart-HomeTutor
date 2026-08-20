@@ -242,8 +242,8 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <strong style={{ fontSize: '14px', color: '#0f2a4a' }}>{uName}</strong>
                           {unread > 0 && (
-                            <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px' }}>
-                              🔴 {unread}
+                            <span style={{ background: '#dc2626', color: '#ffffff', fontSize: '10.5px', fontWeight: '800', padding: '2px 7px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <i className="fa-solid fa-circle" style={{ fontSize: '6px' }}></i> {unread}
                             </span>
                           )}
                         </div>
@@ -271,9 +271,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
                 )}
               </div>
 
-              <button className="dash-btn dash-btn-primary" onClick={onStartVideoCall}>
-                <i className="fa-solid fa-video"></i> Video Call
-              </button>
+
             </div>
 
             <div className="chat-messages" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', overflowY: 'auto' }}>

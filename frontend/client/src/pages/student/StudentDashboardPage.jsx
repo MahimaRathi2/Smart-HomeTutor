@@ -154,6 +154,7 @@ export const StudentDashboardPage = () => {
                 upcomingClasses={statsData ? statsData.upcomingClasses : []}
                 referralCode={statsData ? statsData.referralCode : ''}
                 referralEarnings={statsData ? statsData.referralEarnings : 0}
+                referredCount={statsData ? (statsData.referredCount || (statsData.stats ? statsData.stats.referredCount : 0)) : 0}
                 onOpenAIRecommendations={() => setAiModalOpen(true)}
                 onOpenReviewModal={() => setReviewModalOpen(true)}
                 onStartVideoCall={handleStartVideoCall}

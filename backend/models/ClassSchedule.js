@@ -41,6 +41,19 @@ const classScheduleSchema = new mongoose.Schema(
       type: String,
       default: "19:00",
     },
+    frequency: {
+      type: String,
+      default: "Weekly",
+    },
+    days: {
+      type: String,
+      default: "Mon, Wed",
+    },
+    mode: {
+      type: String,
+      enum: ["Online", "Offline"],
+      default: "Online",
+    },
     status: {
       type: String,
       enum: ["Scheduled", "Completed", "Cancelled", "Rescheduled"],

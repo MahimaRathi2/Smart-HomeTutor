@@ -1,7 +1,32 @@
 
 const BookingRequest = require("../models/BookingRequest");
+const ClassSchedule = require("../models/ClassSchedule");
 const activeCalls = new Map();
 const userSockets = new Map();
+
+async function findBookingOrScheduleSocket(bIdStr) {
+  let booking = await BookingRequest.findById(bIdStr)
+    .populate("student", "name email role")
+    .populate("tutor", "name email role")
+    .populate("tutorProfile", "subjects");
+
+  if (!booking) {
+    const schedule = await ClassSchedule.findById(bIdStr)
+      .populate("student", "name email role")
+      .populate("tutor", "name email role");
+
+    if (schedule && schedule.student && schedule.tutor) {
+      booking = {
+        _id: schedule._id,
+        student: schedule.student,
+        tutor: schedule.tutor,
+        status: schedule.status === "Cancelled" ? "Rejected" : "Accepted",
+        tutorProfile: { subjects: [schedule.subject] },
+      };
+    }
+  }
+  return booking;
+}
 
 function initVideoCallSocket(io) {
 
@@ -113,13 +138,10 @@ function initVideoCallSocket(io) {
           activeCalls.delete(bIdStr);
         }
 
-        const booking = await BookingRequest.findById(bookingId)
-          .populate("student", "name email role")
-          .populate("tutor", "name email role")
-          .populate("tutorProfile", "subjects");
+        const booking = await findBookingOrScheduleSocket(bIdStr);
 
         if (!booking || booking.status !== "Accepted") {
-          socket.emit("video-error", { message: "Video call is only available for ACCEPTED bookings." });
+          socket.emit("video-error", { message: "Video call is only available for active sessions or ACCEPTED bookings." });
           return;
         }
 
@@ -226,14 +248,17 @@ function initVideoCallSocket(io) {
         if (!bookingId || !userId) return;
         const bIdStr = bookingId.toString();
 
-        const booking = await BookingRequest.findById(bIdStr);
+        const booking = await findBookingOrScheduleSocket(bIdStr);
         if (!booking || booking.status !== "Accepted") {
-          socket.emit("video-error", { message: "Booking is not accepted or invalid." });
+          socket.emit("video-error", { message: "Class session or booking is not accepted or invalid." });
           return;
         }
 
-        const isStudent = booking.student.toString() === userId.toString();
-        const isTutor = booking.tutor.toString() === userId.toString();
+        const studentIdStr = booking.student._id ? booking.student._id.toString() : booking.student.toString();
+        const tutorIdStr = booking.tutor._id ? booking.tutor._id.toString() : booking.tutor.toString();
+
+        const isStudent = studentIdStr === userId.toString();
+        const isTutor = tutorIdStr === userId.toString();
         if (!isStudent && !isTutor) {
           socket.emit("video-error", { message: "Unauthorized call participant." });
           return;

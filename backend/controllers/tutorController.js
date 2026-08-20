@@ -920,3 +920,70 @@ exports.getTutorById = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
+
+exports.requestCertificate = async (req, res) => {
+  try {
+    const tutorId = req.user.id;
+    const { studentId, courseName, attendancePercentage, completedClasses, tutorRemarks } = req.body;
+
+    if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ success: false, message: "Valid student ID is required." });
+    }
+
+    if (!courseName || !courseName.trim()) {
+      return res.status(400).json({ success: false, message: "Course or Subject name is required." });
+    }
+
+    const student = await User.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student account not found." });
+    }
+
+    const existingReq = await CertificateRequest.findOne({
+      tutor: tutorId,
+      student: studentId,
+      courseName: courseName.trim(),
+      status: { $in: ["Pending", "Approved"] },
+    });
+
+    if (existingReq) {
+      return res.status(400).json({
+        success: false,
+        message: `A certificate request for "${courseName}" with this student is already ${existingReq.status}.`,
+        request: existingReq,
+      });
+    }
+
+    const certRequest = await CertificateRequest.create({
+      tutor: tutorId,
+      student: studentId,
+      courseName: courseName.trim(),
+      attendancePercentage: Number(attendancePercentage) || 100,
+      completedClasses: Number(completedClasses) || 12,
+      tutorRemarks: tutorRemarks || "Course completed successfully.",
+      status: "Pending",
+    });
+
+    const tutorName = req.user.name || "Tutor";
+    await createAdminNotification({
+      title: "New Certificate Request 🎓",
+      message: `${tutorName} (Tutor) requested a completion certificate for ${student.name || "Student"} (${courseName}).`,
+      sourceUser: tutorId,
+      sourceRole: "tutor",
+      type: "certificate",
+      actionUrl: "/dashboard/admin?tab=certificates",
+      app: req.app,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `Certificate request for "${courseName}" submitted to Admin for approval.`,
+      request: certRequest,
+    });
+  } catch (err) {
+    console.error("Request Certificate Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.issueCertificate = exports.requestCertificate;

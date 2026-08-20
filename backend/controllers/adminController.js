@@ -1,4 +1,5 @@
 
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const TutorProfile = require("../models/TutorProfile");
 const BookingRequest = require("../models/BookingRequest");
@@ -1670,4 +1671,141 @@ exports.deleteAdminNotification = async (req, res) => {
     console.error("Delete Admin Notification Error:", err);
     return res.status(500).json({ success: false, message: "Server error deleting notification." });
   }
+};
+
+/**
+ * Certificate Request Management
+ */
+exports.getCertificateRequests = async (req, res) => {
+  try {
+    const requests = await CertificateRequest.find({})
+      .populate("student", "name email phone")
+      .populate("tutor", "name email phone")
+      .populate("certificate")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      certificateRequests: requests,
+      requests,
+    });
+  } catch (err) {
+    console.error("Get Certificate Requests Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.updateCertificateRequestStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+    const status = body.status || "Approved";
+    const adminRemarks = body.adminRemarks || "";
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Certificate Request ID." });
+    }
+
+    const normStatus = (status || "").toLowerCase() === "approved" || status === "Approved" ? "Approved" : "Rejected";
+
+    const certReq = await CertificateRequest.findById(id)
+      .populate("student", "name email")
+      .populate("tutor", "name email");
+
+    if (!certReq) {
+      return res.status(404).json({ success: false, message: "Certificate request not found." });
+    }
+
+    certReq.status = normStatus;
+    if (adminRemarks) {
+      certReq.adminRemarks = adminRemarks;
+    }
+
+    if (normStatus === "Approved") {
+      let cert = null;
+      if (certReq.certificate) {
+        cert = await Certificate.findById(certReq.certificate);
+      }
+
+      if (!cert) {
+        const certId = "SHT-CERT-" + Math.floor(100000 + Math.random() * 900000);
+        const studentId = certReq.student?._id || certReq.student;
+        const tutorId = certReq.tutor?._id || certReq.tutor;
+
+        cert = await Certificate.create({
+          student: studentId,
+          tutor: tutorId,
+          courseName: certReq.courseName || "Tuition Course",
+          certificateId: certId,
+          issueDate: new Date(),
+        });
+      }
+
+      certReq.certificate = cert._id;
+      await certReq.save();
+
+      if (certReq.student) {
+        const studentUserId = certReq.student._id || certReq.student;
+        await createNotification({
+          userId: studentUserId,
+          title: "Course Certificate Issued! 🎓",
+          message: `Your official certificate for "${certReq.courseName}" has been approved and issued! Download it from your student dashboard.`,
+          type: "certificate",
+          app: req.app,
+        }).catch(() => {});
+      }
+
+      if (certReq.tutor) {
+        const tutorUserId = certReq.tutor._id || certReq.tutor;
+        await createNotification({
+          userId: tutorUserId,
+          title: "Certificate Request Approved 🎉",
+          message: `Your certificate request for ${certReq.student ? certReq.student.name : "Student"} (${certReq.courseName}) was approved by Admin.`,
+          type: "certificate",
+          app: req.app,
+        }).catch(() => {});
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Certificate Request APPROVED and official Certificate generated!",
+        request: certReq,
+        certificate: cert,
+      });
+    } else {
+      await certReq.save();
+
+      if (certReq.tutor) {
+        const tutorUserId = certReq.tutor._id || certReq.tutor;
+        await createNotification({
+          userId: tutorUserId,
+          title: "Certificate Request Declined",
+          message: `Your certificate request for ${certReq.student ? certReq.student.name : "Student"} was declined. ${adminRemarks ? "Reason: " + adminRemarks : ""}`,
+          type: "certificate",
+          app: req.app,
+        }).catch(() => {});
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Certificate Request REJECTED.",
+        request: certReq,
+      });
+    }
+  } catch (err) {
+    console.error("Update Certificate Request Status Error:", err);
+    return res.status(500).json({ success: false, message: err.message || "Server Error" });
+  }
+};
+
+exports.approveCertificateRequest = async (req, res) => {
+  if (!req.body) req.body = {};
+  req.body.status = "Approved";
+  return exports.updateCertificateRequestStatus(req, res);
+};
+
+exports.rejectCertificateRequest = async (req, res) => {
+  if (!req.body) req.body = {};
+  req.body.status = "Rejected";
+  return exports.updateCertificateRequestStatus(req, res);
 };

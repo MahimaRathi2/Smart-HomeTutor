@@ -10,12 +10,8 @@ const router = express.Router();
 const videoCallController = require("../controllers/videoCallController");
 const { requireAuth } = require("../middleware/authMiddleware");
 
-// Render WebRTC Video Call interface for an accepted booking
-// Endpoint: GET /video-call/:bookingId
-router.get("/:bookingId", requireAuth, videoCallController.renderVideoCall);
-
-// JSON Status Endpoint: GET /api/video-call/status/:bookingId
-router.get("/api/status/:bookingId", requireAuth, videoCallController.getVideoCallStatus);
+// JSON API Endpoints
 router.get("/details/:bookingId", requireAuth, videoCallController.getVideoCallDetails);
+router.get("/status/:bookingId", requireAuth, videoCallController.getVideoCallStatus);
 
 module.exports = router;
