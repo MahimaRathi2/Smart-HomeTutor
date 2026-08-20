@@ -217,7 +217,16 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
           (b) => b.status === 'Accepted' && (b.student?._id === activeStudentId || b.student === activeStudentId)
         );
         if (accepted) {
-          window.location.href = `/video-call/${accepted._id}`;
+          if (window.socket) {
+            window.socket.emit('initiate-video-call', {
+              bookingId: accepted._id,
+              callerId: currentUserId,
+              callerName: currentUserName || 'Tutor',
+              callerRole: 'Tutor',
+            });
+          } else {
+            window.location.href = `/video-call/${accepted._id}`;
+          }
           return;
         }
       }

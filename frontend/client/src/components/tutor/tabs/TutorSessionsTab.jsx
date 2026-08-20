@@ -98,9 +98,24 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
                       <td>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                           {isOnline && (
-                            <a href={`/video-call/${item._id}`} className="dash-btn dash-btn-primary" style={{ padding: '5px 10px', fontSize: '11.5px' }}>
+                            <button
+                              type="button"
+                              className="dash-btn dash-btn-primary"
+                              style={{ padding: '5px 10px', fontSize: '11.5px' }}
+                              onClick={() => {
+                                if (window.socket) {
+                                  window.socket.emit('initiate-video-call', {
+                                    bookingId: item._id,
+                                    callerName: item.tutor?.name || 'Tutor',
+                                    callerRole: 'Tutor',
+                                  });
+                                } else {
+                                  window.location.href = `/video-call/${item._id}`;
+                                }
+                              }}
+                            >
                               <i className="fa-solid fa-video"></i> Start Class
-                            </a>
+                            </button>
                           )}
                           <button
                             type="button"

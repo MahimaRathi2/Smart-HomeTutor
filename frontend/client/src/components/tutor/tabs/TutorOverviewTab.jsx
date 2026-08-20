@@ -106,9 +106,24 @@ export const TutorOverviewTab = ({
                       </p>
                     </div>
                   </div>
-                  <a href={`/video-call/${item._id}`} className="dash-btn dash-btn-primary" style={{ padding: '6px 14px', fontSize: '12px' }}>
+                  <button
+                    type="button"
+                    className="dash-btn dash-btn-primary"
+                    style={{ padding: '6px 14px', fontSize: '12px' }}
+                    onClick={() => {
+                      if (window.socket) {
+                        window.socket.emit('initiate-video-call', {
+                          bookingId: item._id,
+                          callerName: item.tutor?.name || 'Tutor',
+                          callerRole: 'Tutor',
+                        });
+                      } else {
+                        window.location.href = `/video-call/${item._id}`;
+                      }
+                    }}
+                  >
                     <i className="fa-solid fa-video"></i> Join Live
-                  </a>
+                  </button>
                 </div>
               ))
             )}

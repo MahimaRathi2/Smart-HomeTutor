@@ -22,12 +22,14 @@ import { TutorDashboardPage } from './pages/tutor/TutorDashboardPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { ParentDashboard } from './pages/dashboards/ParentDashboard';
 import { BroadcastAnnouncementListener } from './components/common/BroadcastAnnouncementListener';
+import { SocketCallListener } from './components/home/SocketCallListener';
 
 export const App = () => {
   return (
     <AuthProvider>
       <BrowserRouter>
         <BroadcastAnnouncementListener />
+        <SocketCallListener />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<About />} />
