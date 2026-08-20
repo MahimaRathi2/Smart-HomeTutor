@@ -7,7 +7,7 @@ const { logUserActivity } = require("../utils/activityLogHelper");
 const { createNotification } = require("../utils/notificationHelper");
 const { sendVerificationEmail, sendPasswordResetEmail, isValidEmailFormat } = require("../utils/sendEmail");
 
-const JWT_SECRET = process.env.JWT_SECRET || "HomeTutor_Secret_Key_2026";
+const getJwtSecret = () => process.env.JWT_SECRET || "HomeTutor_Secret_Key_2026";
 const sendTokenResponse = (user, statusCode, req, res) => {
   const token = jwt.sign(
     {
@@ -16,14 +16,16 @@ const sendTokenResponse = (user, statusCode, req, res) => {
       name: user.name || user.email.split("@")[0],
       role: user.role,
     },
-    JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: "1d" }
   );
 
+  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
+
   const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isHttps,
+    sameSite: isHttps ? "none" : "lax",
     maxAge: 24 * 60 * 60 * 1000,
   };
 
@@ -35,6 +37,7 @@ const sendTokenResponse = (user, statusCode, req, res) => {
     return res.status(statusCode).json({
       success: true,
       message: "Authentication successful",
+      token,
       user: {
         id: user._id,
         name: user.name,

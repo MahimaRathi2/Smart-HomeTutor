@@ -1,11 +1,15 @@
 const jwt = require("jsonwebtoken");
 const { logUserActivity } = require("../utils/activityLogHelper");
 
-const JWT_SECRET = process.env.JWT_SECRET || "HomeTutor_Secret_Key_2026";
+const getJwtSecret = () => process.env.JWT_SECRET || "HomeTutor_Secret_Key_2026";
 
 // Middleware to verify JWT authentication token
 exports.requireAuth = (req, res, next) => {
-  const token = req.cookies?.token;
+  let token = req.cookies?.token;
+
+  if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+    token = req.headers.authorization.split(" ")[1];
+  }
 
   if (!token) {
     if (req.xhr || (req.headers.accept && req.headers.accept.includes("json")) || req.headers["content-type"]?.includes("json")) {
@@ -15,7 +19,7 @@ exports.requireAuth = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, getJwtSecret());
     let formattedName = decoded.name || decoded.email;
     if (formattedName && formattedName.includes('@')) {
       formattedName = formattedName.split('@')[0];
@@ -24,6 +28,7 @@ exports.requireAuth = (req, res, next) => {
       formattedName = formattedName.charAt(0).toUpperCase() + formattedName.slice(1);
     }
     req.user = decoded; // { id, email, name, role }
+    if (!res.locals) res.locals = {};
     res.locals.isAuth = true;
     res.locals.userRole = decoded.role;
     res.locals.userName = formattedName;

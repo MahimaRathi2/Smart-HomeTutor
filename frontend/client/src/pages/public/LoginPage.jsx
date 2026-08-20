@@ -66,7 +66,7 @@ export const LoginPage = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,10 +83,8 @@ export const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Successful login -> redirect to role dashboard
         window.location.href = data.redirectUrl || `/dashboard/${role}`;
       } else {
-        setIsSubmitting(false);
         setErrorMessage(data.message || 'Login failed. Please check your credentials.');
         if (data.requiresVerification && data.email) {
           setUnverifiedEmail(data.email);
@@ -94,8 +92,9 @@ export const LoginPage = () => {
       }
     } catch (err) {
       console.error('Login request error:', err);
-      setIsSubmitting(false);
       setErrorMessage('Server connection error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

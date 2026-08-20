@@ -77,7 +77,7 @@ export const SignupPage = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/signup', {
+      const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,20 +98,15 @@ export const SignupPage = () => {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Successful signup -> redirect to OTP verification page
-        if (data.redirectUrl) {
-          window.location.href = data.redirectUrl;
-        } else {
-          window.location.href = `/verify-otp?email=${encodeURIComponent(email.trim())}&message=${encodeURIComponent(data.message)}`;
-        }
+        navigate(`/verify-otp?email=${encodeURIComponent(email.trim())}&message=${encodeURIComponent(data.message || '')}`);
       } else {
-        setIsSubmitting(false);
         setErrorMessage(data.message || 'Registration failed. Please try again.');
       }
     } catch (err) {
       console.error('Signup error:', err);
-      setIsSubmitting(false);
       setErrorMessage('Server connection error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
