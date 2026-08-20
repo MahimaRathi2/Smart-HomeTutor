@@ -12,6 +12,7 @@ const Certificate = require("../models/Certificate");
 const CertificateRequest = require("../models/CertificateRequest");
 const PayoutRequest = require("../models/PayoutRequest");
 const PDFDocument = require("pdfkit");
+const Notification = require("../models/Notification");
 const { createNotification } = require("../utils/notificationHelper");
 const { logUserActivity } = require("../utils/activityLogHelper");
 
