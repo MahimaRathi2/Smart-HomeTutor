@@ -11,6 +11,16 @@ const tutorProfileSchema = new mongoose.Schema(
     },
 
     // Step 1: Personal & Location Details
+    firstName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    lastName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     fullName: {
       type: String,
       trim: true,

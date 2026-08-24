@@ -43,6 +43,7 @@ export const AdminSidebar = ({
 
   const navItems = [
     { id: 'overview', label: 'Overview & Metrics', icon: 'fa-gauge' },
+    { id: 'demo-requests', label: 'Demo Class Requests', icon: 'fa-calendar-check' },
     { id: 'notifications', label: 'Notifications', icon: 'fa-bell', badge: unreadCount },
     { id: 'users', label: 'User Directory', icon: 'fa-users-gear' },
     { id: 'tutor-verifications', label: 'Tutor Verifications', icon: 'fa-shield-check' },

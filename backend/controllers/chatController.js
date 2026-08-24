@@ -3,8 +3,126 @@ const User = require("../models/User");
 const ChildProfile = require("../models/ChildProfile");
 const ClassSchedule = require("../models/ClassSchedule");
 const BookingRequest = require("../models/BookingRequest");
+const Payment = require("../models/Payment");
+const Transaction = require("../models/Transaction");
 const path = require("path");
 const fs = require("fs");
+
+async function checkChatLockStatus(userId1, userId2) {
+  try {
+    const user1 = await User.findById(userId1).select("role email name");
+    const user2 = await User.findById(userId2).select("role email name");
+
+    if (!user1 || !user2) {
+      return {
+        isLocked: true,
+        message: "User account not found.",
+      };
+    }
+
+    // System Admins bypass chat lock
+    if (user1.role === "admin" || user2.role === "admin") {
+      return { isLocked: false };
+    }
+
+    let studentId = null;
+    let tutorUserId = null;
+
+    if (user1.role === "student" && user2.role === "tutor") {
+      studentId = user1._id;
+      tutorUserId = user2._id;
+    } else if (user1.role === "tutor" && user2.role === "student") {
+      tutorUserId = user1._id;
+      studentId = user2._id;
+    } else if (user1.role === "parent" && user2.role === "tutor") {
+      const children = await ChildProfile.find({ parent: user1._id });
+      const studentIds = children.map((c) => c.student).filter(Boolean);
+      if (studentIds.length > 0) {
+        studentId = studentIds[0];
+        tutorUserId = user2._id;
+      }
+    } else if (user1.role === "tutor" && user2.role === "parent") {
+      const children = await ChildProfile.find({ parent: user2._id });
+      const studentIds = children.map((c) => c.student).filter(Boolean);
+      if (studentIds.length > 0) {
+        studentId = studentIds[0];
+        tutorUserId = user1._id;
+      }
+    }
+
+    if (!studentId || !tutorUserId) {
+      return {
+        isLocked: true,
+        message: "Chat is locked: Requires a valid student-tutor relationship.",
+      };
+    }
+
+    // 1. Verify Relationship
+    const hasAcceptedBooking = await BookingRequest.exists({
+      student: studentId,
+      tutor: tutorUserId,
+      status: "Accepted",
+    });
+
+    const hasClassSchedule = await ClassSchedule.exists({
+      student: studentId,
+      tutor: tutorUserId,
+    });
+
+    if (!hasAcceptedBooking && !hasClassSchedule) {
+      return {
+        isLocked: true,
+        message: "Chat is locked: Requires an accepted booking or class schedule with this tutor.",
+      };
+    }
+
+    // 2. Check Admin Manual Unlock
+    const bookingRecord = await BookingRequest.findOne({
+      student: studentId,
+      tutor: tutorUserId,
+      status: "Accepted",
+    });
+
+    const tutorUserRecord = await User.findById(tutorUserId);
+
+    const isUnlockedByAdmin = Boolean(
+      (bookingRecord && bookingRecord.isChatUnlocked) ||
+      (tutorUserRecord && tutorUserRecord.chatUnlockedByAdmin)
+    );
+
+    if (isUnlockedByAdmin) {
+      return { isLocked: false };
+    }
+
+    // 3. Verify Tutor Payment in Database
+    const successfulPayment = await Payment.findOne({
+      user: tutorUserId,
+      paymentStatus: "Success",
+    });
+
+    const completedTransaction = await Transaction.findOne({
+      user: tutorUserId,
+      status: "Completed",
+    });
+
+    const isPaid = Boolean(successfulPayment || completedTransaction);
+
+    if (!isPaid) {
+      return {
+        isLocked: true,
+        message: "Chat will be available after the tutor completes the payment or Admin approval.",
+      };
+    }
+
+    return { isLocked: false };
+  } catch (err) {
+    console.error("Check Chat Lock Status Error:", err);
+    return {
+      isLocked: true,
+      message: "Server error verifying chat lock status.",
+    };
+  }
+}
 
 async function verifyParentTutorAccess(parentId, tutorUserId) {
   const children = await ChildProfile.find({ parent: parentId });
@@ -40,11 +158,22 @@ exports.sendMessage = async (req, res) => {
       });
     }
 
+    // Enforce Chat Lock System Authorization
+    const lockStatus = await checkChatLockStatus(senderId, recipientId);
+    if (lockStatus.isLocked) {
+      return res.status(403).json({
+        success: false,
+        chatLocked: true,
+        message: lockStatus.message || "Chat will be available after the tutor completes the payment.",
+      });
+    }
+
     if (req.user.role === "parent") {
       const isAllowed = await verifyParentTutorAccess(senderId, recipientId);
       if (!isAllowed) {
         return res.status(403).json({
           success: false,
+          chatLocked: true,
           message: "Unauthorized: You can only message tutors assigned to your linked children.",
         });
       }
@@ -94,12 +223,25 @@ exports.getMessages = async (req, res) => {
     const currentUserId = req.user.id;
     const { otherUserId } = req.params;
 
+    // Enforce Chat Lock System Authorization
+    const lockStatus = await checkChatLockStatus(currentUserId, otherUserId);
+    if (lockStatus.isLocked) {
+      return res.status(403).json({
+        success: false,
+        chatLocked: true,
+        message: lockStatus.message || "Chat will be available after the tutor completes the payment.",
+        messages: [],
+      });
+    }
+
     if (req.user.role === "parent") {
       const isAllowed = await verifyParentTutorAccess(currentUserId, otherUserId);
       if (!isAllowed) {
         return res.status(403).json({
           success: false,
+          chatLocked: true,
           message: "Unauthorized: You can only access chat history with tutors assigned to your linked children.",
+          messages: [],
         });
       }
     }
@@ -116,6 +258,7 @@ exports.getMessages = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      chatLocked: false,
       messages,
     });
   } catch (err) {
@@ -131,6 +274,16 @@ exports.markAsSeen = async (req, res) => {
   try {
     const currentUserId = req.user.id;
     const { otherUserId } = req.params;
+
+    // Enforce Chat Lock System Authorization
+    const lockStatus = await checkChatLockStatus(currentUserId, otherUserId);
+    if (lockStatus.isLocked) {
+      return res.status(403).json({
+        success: false,
+        chatLocked: true,
+        message: lockStatus.message || "Chat will be available after the tutor completes the payment.",
+      });
+    }
 
     await Message.updateMany(
       { sender: otherUserId, recipient: currentUserId, read: false },
@@ -178,15 +331,21 @@ exports.getConversations = async (req, res) => {
       const otherUserIdStr = otherUser._id.toString();
 
       if (!conversationMap.has(otherUserIdStr)) {
+        const lockStatus = await checkChatLockStatus(currentUserId, otherUserIdStr);
+
         conversationMap.set(otherUserIdStr, {
           user: otherUser,
-          lastMessage: msg.content || (msg.fileName ? `📎 ${msg.fileName}` : "Attachment"),
+          chatLocked: lockStatus.isLocked,
+          lockMessage: lockStatus.isLocked ? (lockStatus.message || "Chat will be available after the tutor completes the payment.") : "",
+          lastMessage: lockStatus.isLocked
+            ? " Chat Locked - Payment Required"
+            : (msg.content || (msg.fileName ? `📎 ${msg.fileName}` : "Attachment")),
           lastMessageTime: msg.createdAt,
-          unreadCount: (!isSender && !msg.read) ? 1 : 0,
+          unreadCount: (!isSender && !msg.read && !lockStatus.isLocked) ? 1 : 0,
         });
       } else {
-        if (!isSender && !msg.read) {
-          const conv = conversationMap.get(otherUserIdStr);
+        const conv = conversationMap.get(otherUserIdStr);
+        if (!isSender && !msg.read && !conv.chatLocked) {
           conv.unreadCount += 1;
         }
       }

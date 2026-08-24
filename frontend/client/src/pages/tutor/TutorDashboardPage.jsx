@@ -9,14 +9,28 @@ import { TutorRequestsTab } from '../../components/tutor/tabs/TutorRequestsTab';
 import { TutorHomeworkTab } from '../../components/tutor/tabs/TutorHomeworkTab';
 import { TutorChatTab } from '../../components/tutor/tabs/TutorChatTab';
 import { TutorRatesTab } from '../../components/tutor/tabs/TutorRatesTab';
+import { TutorApplicationForm } from '../../components/tutor/TutorApplicationForm';
 import { PayoutModal } from '../../components/tutor/modals/PayoutModal';
 import { RequestCertificateModal } from '../../components/tutor/modals/RequestCertificateModal';
 
 import { NotificationsTab } from '../../components/common/NotificationsTab';
+import { useDashboardTab } from '../../hooks/useDashboardTab';
+
+const TUTOR_VALID_TABS = [
+  'overview',
+  'notifications',
+  'sessions',
+  'requests',
+  'assignments',
+  'chat',
+  'rates-availability',
+];
 
 export const TutorDashboardPage = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useDashboardTab('tutor_activeTab', 'overview', TUTOR_VALID_TABS);
   const [loading, setLoading] = useState(true);
+  const [tutorStatus, setTutorStatus] = useState('not_applied');
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [tutorUser, setTutorUser] = useState(null);
   const [tutorProfile, setTutorProfile] = useState(null);
   const [stats, setStats] = useState(null);
@@ -48,34 +62,47 @@ export const TutorDashboardPage = () => {
     setLoading(true);
     try {
       fetchUnreadNotifications();
-      // 1. Load Profile
+      // 1. Load Profile & Tutor Status
       const profRes = await tutorApi.getTutorProfile();
-      if (profRes.success && profRes.tutorProfile) {
-        setTutorProfile(profRes.tutorProfile);
-        if (profRes.tutorProfile.user) {
-          setTutorUser(profRes.tutorProfile.user);
+      let currentStatus = 'not_applied';
+
+      if (profRes.success) {
+        if (profRes.tutorStatus) {
+          currentStatus = profRes.tutorStatus;
+        } else if (profRes.tutorProfile && profRes.tutorProfile.user && profRes.tutorProfile.user.tutorStatus) {
+          currentStatus = profRes.tutorProfile.user.tutorStatus;
+        }
+
+        if (profRes.tutorProfile) {
+          setTutorProfile(profRes.tutorProfile);
+          if (profRes.tutorProfile.user) {
+            setTutorUser(profRes.tutorProfile.user);
+          }
         }
       }
 
-      // 2. Load Stats
-      const statsRes = await tutorApi.getDashboardStats();
-      if (statsRes.success) {
-        setStats(statsRes.stats || statsRes);
-        if (statsRes.todaySchedule) setSchedule(statsRes.todaySchedule);
-        if (statsRes.payoutRequests) setPayoutHistory(statsRes.payoutRequests);
-        if (statsRes.reviews) setReviews(statsRes.reviews);
-      }
+      setTutorStatus(currentStatus);
 
-      // 3. Load Booking Requests
-      const reqRes = await tutorApi.getBookingRequests();
-      if (reqRes.success && reqRes.requests) {
-        const pending = reqRes.requests.filter((r) => r.status === 'Pending');
-        setPendingRequests(pending);
+      // Only load full dashboard data if tutor is approved
+      if (currentStatus === 'approved') {
+        // 2. Load Stats
+        const statsRes = await tutorApi.getDashboardStats();
+        if (statsRes.success) {
+          setStats(statsRes.stats || statsRes);
+          if (statsRes.todaySchedule) setSchedule(statsRes.todaySchedule);
+          if (statsRes.payoutRequests) setPayoutHistory(statsRes.payoutRequests);
+          if (statsRes.reviews) setReviews(statsRes.reviews);
+        }
 
-        // If schedule was empty, construct from accepted requests
-        const accepted = reqRes.requests.filter((r) => r.status === 'Accepted');
-        if (accepted.length > 0) {
-          setSchedule((prev) => (prev.length > 0 ? prev : accepted));
+        // 3. Load Booking Requests
+        const reqRes = await tutorApi.getBookingRequests();
+        if (reqRes.success && reqRes.requests) {
+          setPendingRequests(reqRes.requests);
+
+          const accepted = reqRes.requests.filter((r) => r.status === 'Accepted' || r.status === 'Confirmed');
+          if (accepted.length > 0) {
+            setSchedule((prev) => (prev.length > 0 ? prev : accepted));
+          }
         }
       }
     } catch (err) {
@@ -117,12 +144,154 @@ export const TutorDashboardPage = () => {
   const tutorEmail = tutorUser?.email || 'tutor@hometutor.com';
   const currentUserId = tutorUser?._id || tutorProfile?.user?._id || tutorProfile?.user || '';
 
+  const renderContent = () => {
+    // 1. Notifications Tab is ALWAYS accessible in all statuses
+    if (activeTab === 'notifications') {
+      return <NotificationsTab userRole="tutor" />;
+    }
+
+    // 2. Application Form mode when requested by Tutor
+    if (showApplicationForm) {
+      return (
+        <div className="dash-tab-content" style={{ display: 'block', padding: '20px' }}>
+          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '700', color: '#0f2a4a' }}>Become a Tutor Application</h3>
+            <button
+              className="dash-btn dash-btn-outline"
+              onClick={() => setShowApplicationForm(false)}
+            >
+              <i className="fa-solid fa-xmark"></i> Close Form
+            </button>
+          </div>
+          <TutorApplicationForm
+            onSuccess={() => {
+              setShowApplicationForm(false);
+              loadDashboardData();
+            }}
+          />
+        </div>
+      );
+    }
+
+    // 3. Status-based dashboard locks for tutor-specific features
+    if (tutorStatus === 'not_applied') {
+      return (
+        <div className="dash-tab-content" style={{ display: 'block' }}>
+          <div className="dash-card" style={{ textAlign: 'center', padding: '50px 20px', maxWidth: '700px', margin: '40px auto', borderRadius: '16px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f2a4a', marginBottom: '10px' }}>Tutor Dashboard </h2>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>Complete Registration</h3>
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px', lineHeight: '1.6' }}>
+              Submit your application to unlock tutor features.
+            </p>
+            <button
+              className="dash-btn dash-btn-primary"
+              style={{ padding: '12px 28px', fontSize: '15px', fontWeight: '600' }}
+              onClick={() => setShowApplicationForm(true)}
+            >
+              <i className="fa-solid fa-graduation-cap" style={{ marginRight: '8px' }}></i> Complete Registration
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (tutorStatus === 'pending') {
+      return (
+        <div className="dash-tab-content" style={{ display: 'block' }}>
+          <div className="dash-card" style={{ textAlign: 'center', padding: '50px 20px', maxWidth: '700px', margin: '40px auto', borderRadius: '16px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f2a4a', marginBottom: '12px' }}>Application Under Review ⏳</h2>
+            <p style={{ fontSize: '15px', color: '#475569', marginBottom: '20px', lineHeight: '1.6' }}>
+              Your tutor application is currently being reviewed by the admin.
+            </p>
+            <p style={{ fontSize: '14px', color: '#64748b' }}>
+              You can check <strong style={{ color: '#0f2a4a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setActiveTab('notifications')}>Notifications</strong> for updates.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (tutorStatus === 'rejected') {
+      return (
+        <div className="dash-tab-content" style={{ display: 'block' }}>
+          <div className="dash-card" style={{ textAlign: 'center', padding: '50px 20px', maxWidth: '700px', margin: '40px auto', borderRadius: '16px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>❌</div>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#dc2626', marginBottom: '12px' }}>Application Rejected</h2>
+            <p style={{ fontSize: '15px', color: '#475569', marginBottom: '20px', lineHeight: '1.6' }}>
+              Your tutor application was not approved.
+            </p>
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
+              Check <strong style={{ color: '#0f2a4a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setActiveTab('notifications')}>Notifications</strong> for more information.
+            </p>
+            <button
+              className="dash-btn dash-btn-outline"
+              style={{ padding: '10px 24px', fontSize: '14px' }}
+              onClick={() => setShowApplicationForm(true)}
+            >
+              <i className="fa-solid fa-rotate-right" style={{ marginRight: '8px' }}></i> Re-apply / Submit Application
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // 4. Approved State: Render tutor dashboard tabs
+    return (
+      <>
+        {activeTab === 'overview' && (
+          <TutorOverviewTab
+            stats={stats}
+            schedule={schedule}
+            pendingRequests={pendingRequests}
+            payoutHistory={payoutHistory}
+            reviews={reviews}
+            onAcceptRequest={handleAcceptRequest}
+            onRejectRequest={handleRejectRequest}
+            onRequestPayout={() => setIsPayoutModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'sessions' && (
+          <TutorSessionsTab sessions={schedule} onRefresh={loadDashboardData} />
+        )}
+
+        {activeTab === 'requests' && (
+          <TutorRequestsTab
+            requests={pendingRequests}
+            onAcceptRequest={handleAcceptRequest}
+            onRejectRequest={handleRejectRequest}
+          />
+        )}
+
+        {activeTab === 'assignments' && (
+          <TutorHomeworkTab />
+        )}
+
+        {activeTab === 'chat' && (
+          <TutorChatTab
+            currentUserId={currentUserId}
+            currentUserName={tutorDisplayName}
+          />
+        )}
+
+        {activeTab === 'rates-availability' && (
+          <TutorRatesTab />
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="dashboard-wrapper">
       {/* SIDEBAR */}
       <TutorSidebar
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={(tabId) => {
+          setShowApplicationForm(false);
+          setActiveTab(tabId);
+        }}
         tutorName={tutorDisplayName}
         tutorEmail={tutorEmail}
         unreadCount={0}
@@ -132,6 +301,7 @@ export const TutorDashboardPage = () => {
       {/* MAIN CONTENT AREA */}
       <main className="dashboard-main">
         <TutorHeaderBar
+          isApproved={tutorStatus === 'approved'}
           onRequestPayout={() => setIsPayoutModalOpen(true)}
           onRequestCertificate={() => setIsCertModalOpen(true)}
         />
@@ -143,51 +313,7 @@ export const TutorDashboardPage = () => {
             <p style={{ fontSize: '15px', fontWeight: '600' }}>Loading Educator Control Panel...</p>
           </div>
         ) : (
-          <>
-            {activeTab === 'overview' && (
-              <TutorOverviewTab
-                stats={stats}
-                schedule={schedule}
-                pendingRequests={pendingRequests}
-                payoutHistory={payoutHistory}
-                reviews={reviews}
-                onAcceptRequest={handleAcceptRequest}
-                onRejectRequest={handleRejectRequest}
-                onRequestPayout={() => setIsPayoutModalOpen(true)}
-              />
-            )}
-
-            {activeTab === 'notifications' && (
-              <NotificationsTab userRole="tutor" />
-            )}
-
-            {activeTab === 'sessions' && (
-              <TutorSessionsTab sessions={schedule} onRefresh={loadDashboardData} />
-            )}
-
-            {activeTab === 'requests' && (
-              <TutorRequestsTab
-                requests={pendingRequests}
-                onAccept={handleAcceptRequest}
-                onReject={handleRejectRequest}
-              />
-            )}
-
-            {activeTab === 'assignments' && (
-              <TutorHomeworkTab />
-            )}
-
-            {activeTab === 'chat' && (
-              <TutorChatTab
-                currentUserId={currentUserId}
-                currentUserName={tutorDisplayName}
-              />
-            )}
-
-            {activeTab === 'rates-availability' && (
-              <TutorRatesTab />
-            )}
-          </>
+          renderContent()
         )}
       </main>
 

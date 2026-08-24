@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export const TutorApplicationForm = () => {
+export const TutorApplicationForm = ({ onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -9,6 +9,8 @@ export const TutorApplicationForm = () => {
   // Main Form Data State
   const [formData, setFormData] = useState({
     // Step 1: Personal & Location
+    firstName: '',
+    lastName: '',
     fullName: '',
     gender: '',
     dob: '',
@@ -86,13 +88,73 @@ export const TutorApplicationForm = () => {
   // Custom subject input state for Step 3
   const [customSubjectInput, setCustomSubjectInput] = useState('');
 
+  // Map data from signup / user profile automatically on mount
+  useEffect(() => {
+    const prefillUserData = async () => {
+      try {
+        const res = await fetch('/api/tutor/profile');
+        const data = await res.json();
+
+        let rawName = '';
+        let emailVal = '';
+        let phoneVal = '';
+
+        if (data.success && data.user) {
+          if (data.user.name) rawName = data.user.name;
+          if (data.user.email) emailVal = data.user.email;
+          if (data.user.phone) phoneVal = data.user.phone;
+        }
+
+        if (!rawName && localStorage.getItem('userName')) rawName = localStorage.getItem('userName');
+        if (!emailVal && localStorage.getItem('userEmail')) emailVal = localStorage.getItem('userEmail');
+        if (!phoneVal && localStorage.getItem('userPhone')) phoneVal = localStorage.getItem('userPhone');
+
+        let fName = '';
+        let lName = '';
+        if (rawName) {
+          const parts = rawName.trim().split(' ');
+          fName = parts[0] || '';
+          lName = parts.slice(1).join(' ') || '';
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          firstName: prev.firstName || fName,
+          lastName: prev.lastName || lName,
+          fullName: prev.fullName || rawName,
+          email: prev.email || emailVal,
+          mobile: prev.mobile || phoneVal,
+          whatsapp: prev.whatsapp || phoneVal,
+        }));
+      } catch (err) {
+        console.error('Error prefilling tutor form from signup user data:', err);
+      }
+    };
+
+    prefillUserData();
+  }, []);
+
   // Handle Text/Select/Radio input change
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, type, checked } = e.target;
+    let value = e.target.value;
+
+    if (name === 'mobile' || name === 'whatsapp') {
+      value = value.replace(/\D/g, '').slice(0, 10);
+    } else if (name === 'pincode') {
+      value = value.replace(/\D/g, '').slice(0, 6);
+    } else if (name === 'totalExperience' || name === 'expectedFee') {
+      value = value.replace(/\D/g, '');
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+    if (invalidFieldName === name) {
+      setInvalidFieldName('');
+      setErrorMessage('');
+    }
   };
 
   // Handle Array Multi-Select Toggle
@@ -126,7 +188,7 @@ export const TutorApplicationForm = () => {
 
   // Handle File Upload Change
   const handleFileChange = (e, fieldName) => {
-    const file = e.target.files && e.target.files[0];
+    const file = e.target.files[0];
     if (!file) return;
 
     // Validate size (max 10MB)
@@ -151,76 +213,208 @@ export const TutorApplicationForm = () => {
     setFiles((prev) => ({ ...prev, [fieldName]: null }));
   };
 
-  // Step Validation Logic
-  const validateStep = (step) => {
-    setErrorMessage('');
+  const [invalidFieldName, setInvalidFieldName] = useState('');
 
-    if (step === 1) {
-      if (!formData.fullName.trim()) return 'Full Name is required.';
-      if (!formData.gender) return 'Gender selection is required.';
-      if (!formData.mobile.trim()) return 'Mobile Number is required.';
-      if (!formData.email.trim()) return 'Email Address is required.';
-      if (!formData.currentAddress.trim()) return 'Current Address is required.';
-      if (!formData.city.trim()) return 'City is required.';
-      if (!formData.state.trim()) return 'State is required.';
-      if (!formData.pincode.trim()) return 'Pincode is required.';
-      if (!formData.teachingArea.trim()) return 'Teaching Area / Locality is required.';
+  // Auto-scroll and focus to the first missing mandatory field
+  const scrollToAndFocusField = (fieldName) => {
+    setInvalidFieldName(fieldName);
+    setTimeout(() => {
+      let targetEl = document.querySelector(`[name="${fieldName}"]`);
+      if (!targetEl) {
+        targetEl = document.getElementById(fieldName);
+      }
+      if (!targetEl) {
+        targetEl = document.querySelector(`.tr-field-group-${fieldName}`);
+      }
+
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (targetEl.focus && typeof targetEl.focus === 'function') {
+          targetEl.focus({ preventScroll: true });
+        }
+      } else {
+        window.scrollTo({ top: 160, behavior: 'smooth' });
+      }
+    }, 50);
+  };
+
+  const getFieldStyle = (fieldName) => {
+    if (invalidFieldName === fieldName) {
+      return {
+        borderColor: '#ef4444',
+        backgroundColor: '#fef2f2',
+        boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.25)',
+        transition: 'all 0.2s ease',
+      };
     }
+    return {};
+  };
 
-    if (step === 2) {
-      if (!formData.highestQualification.trim()) return 'Highest Qualification is required.';
-      if (!formData.totalExperience.trim()) return 'Total Teaching Experience is required.';
-      if (formData.experienceType === 'Experienced' && !formData.previousInstitute.trim()) {
-        return 'Previous School / Institute / Coaching Name is required for experienced tutors.';
+  const renderInlineError = (fieldName) => {
+    if (invalidFieldName === fieldName) {
+      return (
+        <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: '600', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <i className="fa-solid fa-circle-exclamation"></i>
+          <span>{errorMessage || 'This field is required.'}</span>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Detailed Step Validation Logic
+  const validateStepDetails = (step) => {
+    // Step 1: Personal & Location
+    if (step === 1) {
+      if (!formData.firstName.trim()) {
+        return { valid: false, error: 'First Name is required.', fieldName: 'firstName' };
+      }
+      if (!formData.lastName.trim()) {
+        return { valid: false, error: 'Last Name is required.', fieldName: 'lastName' };
+      }
+      if (!formData.gender) {
+        return { valid: false, error: 'Gender selection is required.', fieldName: 'gender' };
+      }
+      if (!formData.mobile.trim()) {
+        return { valid: false, error: 'Mobile Number is required.', fieldName: 'mobile' };
+      }
+      if (!/^\d{10}$/.test(formData.mobile.trim())) {
+        return { valid: false, error: 'Mobile number must contain exactly 10 digits.', fieldName: 'mobile' };
+      }
+      if (formData.whatsapp && formData.whatsapp.trim() && !/^\d{10}$/.test(formData.whatsapp.trim())) {
+        return { valid: false, error: 'WhatsApp number must contain exactly 10 digits.', fieldName: 'whatsapp' };
+      }
+      if (!formData.email.trim()) {
+        return { valid: false, error: 'Email Address is required.', fieldName: 'email' };
+      }
+      if (!formData.currentAddress.trim()) {
+        return { valid: false, error: 'Current Address is required.', fieldName: 'currentAddress' };
+      }
+      if (!formData.city.trim()) {
+        return { valid: false, error: 'City is required.', fieldName: 'city' };
+      }
+      if (!formData.state.trim()) {
+        return { valid: false, error: 'State is required.', fieldName: 'state' };
+      }
+      if (!formData.pincode.trim()) {
+        return { valid: false, error: 'Pincode is required.', fieldName: 'pincode' };
+      }
+      if (!/^\d{6}$/.test(formData.pincode.trim())) {
+        return { valid: false, error: 'Pincode must contain exactly 6 digits.', fieldName: 'pincode' };
+      }
+      if (!formData.teachingArea.trim()) {
+        return { valid: false, error: 'Teaching Area / Locality is required.', fieldName: 'teachingArea' };
       }
     }
 
+    // Step 2: Qualification & Experience
+    if (step === 2) {
+      if (!formData.highestQualification.trim()) {
+        return { valid: false, error: 'Highest Qualification is required.', fieldName: 'highestQualification' };
+      }
+      if (!formData.totalExperience.trim()) {
+        return { valid: false, error: 'Total Teaching Experience is required.', fieldName: 'totalExperience' };
+      }
+      if (isNaN(formData.totalExperience) || Number(formData.totalExperience) < 0) {
+        return { valid: false, error: 'Please enter numbers only for teaching experience.', fieldName: 'totalExperience' };
+      }
+      if (formData.experienceType === 'Experienced' && !formData.previousInstitute.trim()) {
+        return { valid: false, error: 'Previous School / Institute / Coaching Name is required for experienced tutors.', fieldName: 'previousInstitute' };
+      }
+    }
+
+    // Step 3: Teaching Details & Approach
     if (step === 3) {
       if (!formData.classesYouTeach || formData.classesYouTeach.length === 0) {
-        return 'Please select at least one Class that you teach.';
+        return { valid: false, error: 'Please select at least one Class that you teach.', fieldName: 'classesYouTeach' };
       }
       if (!formData.board || formData.board.length === 0) {
-        return 'Please select at least one Board (e.g. CBSE, ICSE).';
+        return { valid: false, error: 'Please select at least one Educational Board (e.g. CBSE, ICSE).', fieldName: 'board' };
       }
       if (!formData.subjectsYouTeach || formData.subjectsYouTeach.length === 0) {
-        return 'Please select or add at least one Subject.';
+        return { valid: false, error: 'Please select or add at least one Subject.', fieldName: 'subjectsYouTeach' };
       }
-      if (!formData.teachingMode) return 'Please select a Teaching Mode.';
+      if (!formData.teachingMode) {
+        return { valid: false, error: 'Please select a Teaching Mode.', fieldName: 'teachingMode' };
+      }
     }
 
+    // Step 4: Availability & Fees
     if (step === 4) {
-      if (!formData.expectedFee.trim()) return 'Expected Fee is required.';
+      if (!formData.expectedFee.trim()) {
+        return { valid: false, error: 'Expected Fee is required.', fieldName: 'expectedFee' };
+      }
+      if (isNaN(formData.expectedFee) || Number(formData.expectedFee) <= 0) {
+        return { valid: false, error: 'Please enter a valid numeric tuition fee amount.', fieldName: 'expectedFee' };
+      }
     }
 
+    // Step 5: Documents & Declaration
     if (step === 5) {
-      if (!files.qualificationDoc) return 'Qualification Certificate document upload is required.';
-      if (!files.idProofDoc) return 'ID Proof document upload is required.';
-      if (!formData.declarationAccepted) return 'You must accept the declaration to submit your application.';
+      if (!files.qualificationDoc) {
+        return { valid: false, error: 'Qualification Certificate document upload is required.', fieldName: 'qualificationDoc' };
+      }
+      if (!files.idProofDoc) {
+        return { valid: false, error: 'ID Proof document upload is required.', fieldName: 'idProofDoc' };
+      }
+      if (!formData.declarationAccepted) {
+        return { valid: false, error: 'You must accept the declaration to submit your application.', fieldName: 'declarationAccepted' };
+      }
     }
 
-    return null;
+    return { valid: true, error: null, fieldName: null };
   };
 
   // Step Navigation
   const handleNext = () => {
-    const error = validateStep(currentStep);
-    if (error) {
-      setErrorMessage(error);
+    const res = validateStepDetails(currentStep);
+    if (!res.valid) {
+      setErrorMessage(res.error);
+      scrollToAndFocusField(res.fieldName);
       return;
     }
     setErrorMessage('');
+    setInvalidFieldName('');
     setCurrentStep((prev) => Math.min(prev + 1, 5));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePrev = () => {
     setErrorMessage('');
+    setInvalidFieldName('');
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleStepClick = (targetStep) => {
+    if (targetStep <= currentStep) {
+      setErrorMessage('');
+      setInvalidFieldName('');
+      setCurrentStep(targetStep);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    for (let s = 1; s < targetStep; s++) {
+      const res = validateStepDetails(s);
+      if (!res.valid) {
+        setCurrentStep(s);
+        setErrorMessage(res.error);
+        scrollToAndFocusField(res.fieldName);
+        return;
+      }
+    }
+
+    setErrorMessage('');
+    setInvalidFieldName('');
+    setCurrentStep(targetStep);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleResetAndNewApplication = () => {
     setFormData({
+      firstName: '',
+      lastName: '',
       fullName: '',
       gender: '',
       dob: '',
@@ -278,6 +472,7 @@ export const TutorApplicationForm = () => {
     });
     setCustomSubjectInput('');
     setErrorMessage('');
+    setInvalidFieldName('');
     setCurrentStep(1);
     setSubmitSuccess(false);
   };
@@ -285,22 +480,35 @@ export const TutorApplicationForm = () => {
   // Form Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const error = validateStep(5);
-    if (error) {
-      setErrorMessage(error);
-      return;
+
+    // Validate all 5 steps sequentially before submission
+    for (let s = 1; s <= 5; s++) {
+      const res = validateStepDetails(s);
+      if (!res.valid) {
+        setCurrentStep(s);
+        setErrorMessage(res.error);
+        scrollToAndFocusField(res.fieldName);
+        return;
+      }
     }
 
     setIsSubmitting(true);
     setErrorMessage('');
+    setInvalidFieldName('');
 
     try {
+      const computedName = `${formData.firstName || ''} ${formData.lastName || ''}`.trim();
+      const updatedFormData = {
+        ...formData,
+        fullName: computedName || formData.fullName,
+      };
+
       const dataPayload = new FormData();
-      Object.keys(formData).forEach((key) => {
-        if (Array.isArray(formData[key])) {
-          dataPayload.append(key, JSON.stringify(formData[key]));
+      Object.keys(updatedFormData).forEach((key) => {
+        if (Array.isArray(updatedFormData[key])) {
+          dataPayload.append(key, JSON.stringify(updatedFormData[key]));
         } else {
-          dataPayload.append(key, formData[key]);
+          dataPayload.append(key, updatedFormData[key]);
         }
       });
 
@@ -324,6 +532,7 @@ export const TutorApplicationForm = () => {
       if (response.ok && resData.success) {
         setIsSubmitting(false);
         setSubmitSuccess(true);
+        if (onSuccess) onSuccess(resData);
       } else {
         setIsSubmitting(false);
         setErrorMessage(resData.message || 'Submission failed. Please try again.');
@@ -403,7 +612,7 @@ export const TutorApplicationForm = () => {
           </p>
           <div className="tr-success-summary-box">
             <p><strong>Status:</strong> <span style={{ color: '#b45309', fontWeight: 700 }}>Pending Review</span></p>
-            <p><strong>Applicant Name:</strong> {formData.fullName}</p>
+            <p><strong>Applicant Name:</strong> {formData.firstName} {formData.lastName}</p>
             <p><strong>Email:</strong> {formData.email}</p>
             <p><strong>Mobile:</strong> {formData.mobile}</p>
             <p><strong>Teaching Mode:</strong> {formData.teachingMode}</p>
@@ -436,26 +645,51 @@ export const TutorApplicationForm = () => {
                 <h4 className="tr-card-title">Personal Details</h4>
                 <div className="tr-grid-2col">
                   <div className="tr-field-group">
-                    <label className="tr-field-label">Full Name <span className="req">*</span></label>
+                    <label className="tr-field-label">First Name <span className="req">*</span></label>
                     <input
                       type="text"
-                      name="fullName"
+                      name="firstName"
                       className="tr-input"
-                      placeholder="e.g. Dr. Ramesh Kumar"
-                      value={formData.fullName}
+                      placeholder="e.g. Ramesh"
+                      value={formData.firstName}
                       onChange={handleChange}
+                      style={getFieldStyle('firstName')}
                       required
                     />
+                    {renderInlineError('firstName')}
+                  </div>
+
+                  <div className="tr-field-group">
+                    <label className="tr-field-label">Last Name <span className="req">*</span></label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      className="tr-input"
+                      placeholder="e.g. Kumar"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      style={getFieldStyle('lastName')}
+                      required
+                    />
+                    {renderInlineError('lastName')}
                   </div>
 
                   <div className="tr-field-group">
                     <label className="tr-field-label">Gender <span className="req">*</span></label>
-                    <select name="gender" className="tr-select" value={formData.gender} onChange={handleChange} required>
+                    <select
+                      name="gender"
+                      className="tr-select"
+                      value={formData.gender}
+                      onChange={handleChange}
+                      style={getFieldStyle('gender')}
+                      required
+                    >
                       <option value="">Select Gender *</option>
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
                       <option value="Other">Other</option>
                     </select>
+                    {renderInlineError('gender')}
                   </div>
 
                   <div className="tr-field-group">
@@ -478,8 +712,10 @@ export const TutorApplicationForm = () => {
                       placeholder="10-digit Mobile Number *"
                       value={formData.mobile}
                       onChange={handleChange}
+                      style={getFieldStyle('mobile')}
                       required
                     />
+                    {renderInlineError('mobile')}
                   </div>
 
                   <div className="tr-field-group">
@@ -495,7 +731,7 @@ export const TutorApplicationForm = () => {
                   </div>
 
                   <div className="tr-field-group">
-                    <label className="tr-field-label">Email Address <span className="req">*</span></label>
+                    <label className="tr-field-label">Email Address (From Sign Up Account) <span className="req">*</span></label>
                     <input
                       type="email"
                       name="email"
@@ -503,8 +739,11 @@ export const TutorApplicationForm = () => {
                       placeholder="your.email@example.com *"
                       value={formData.email}
                       onChange={handleChange}
+                      readOnly
+                      style={{ background: '#f1f5f9', cursor: 'not-allowed', color: '#475569', fontWeight: '600', ...getFieldStyle('email') }}
                       required
                     />
+                    {renderInlineError('email')}
                   </div>
 
                   <div className="tr-field-group">
@@ -534,8 +773,10 @@ export const TutorApplicationForm = () => {
                       placeholder="House/Flat No., Street, Landmark *"
                       value={formData.currentAddress}
                       onChange={handleChange}
+                      style={getFieldStyle('currentAddress')}
                       required
                     ></textarea>
+                    {renderInlineError('currentAddress')}
                   </div>
 
                   <div className="tr-field-group">
@@ -547,8 +788,10 @@ export const TutorApplicationForm = () => {
                       placeholder="e.g. New Delhi *"
                       value={formData.city}
                       onChange={handleChange}
+                      style={getFieldStyle('city')}
                       required
                     />
+                    {renderInlineError('city')}
                   </div>
 
                   <div className="tr-field-group">
@@ -560,8 +803,10 @@ export const TutorApplicationForm = () => {
                       placeholder="e.g. Delhi *"
                       value={formData.state}
                       onChange={handleChange}
+                      style={getFieldStyle('state')}
                       required
                     />
+                    {renderInlineError('state')}
                   </div>
 
                   <div className="tr-field-group">
@@ -573,8 +818,10 @@ export const TutorApplicationForm = () => {
                       placeholder="6-digit Pincode *"
                       value={formData.pincode}
                       onChange={handleChange}
+                      style={getFieldStyle('pincode')}
                       required
                     />
+                    {renderInlineError('pincode')}
                   </div>
 
                   <div className="tr-field-group">
@@ -586,8 +833,10 @@ export const TutorApplicationForm = () => {
                       placeholder="e.g. South Extension, Saket *"
                       value={formData.teachingArea}
                       onChange={handleChange}
+                      style={getFieldStyle('teachingArea')}
                       required
                     />
+                    {renderInlineError('teachingArea')}
                   </div>
 
                   <div className="tr-field-group">
@@ -632,8 +881,10 @@ export const TutorApplicationForm = () => {
                       placeholder="e.g. M.Sc. Mathematics / B.Tech / M.A."
                       value={formData.highestQualification}
                       onChange={handleChange}
+                      style={getFieldStyle('highestQualification')}
                       required
                     />
+                    {renderInlineError('highestQualification')}
                     <small className="tr-field-hint">Example: B.Sc. Mathematics | HNB Garhwal University | 2023</small>
                   </div>
 
@@ -739,8 +990,10 @@ export const TutorApplicationForm = () => {
                       placeholder="e.g. 4 Years / Fresher"
                       value={formData.totalExperience}
                       onChange={handleChange}
+                      style={getFieldStyle('totalExperience')}
                       required
                     />
+                    {renderInlineError('totalExperience')}
                   </div>
                 </div>
 
@@ -756,8 +1009,10 @@ export const TutorApplicationForm = () => {
                         placeholder="e.g. Allen Career Institute / DPS School"
                         value={formData.previousInstitute}
                         onChange={handleChange}
+                        style={getFieldStyle('previousInstitute')}
                         required
                       />
+                      {renderInlineError('previousInstitute')}
                     </div>
 
                     <div className="tr-field-group">
@@ -805,6 +1060,7 @@ export const TutorApplicationForm = () => {
                     );
                   })}
                 </div>
+                {renderInlineError('classesYouTeach')}
               </div>
 
               {/* Academic Board */}
@@ -825,6 +1081,7 @@ export const TutorApplicationForm = () => {
                     );
                   })}
                 </div>
+                {renderInlineError('board')}
               </div>
 
               {/* Subjects You Teach */}
@@ -839,6 +1096,7 @@ export const TutorApplicationForm = () => {
                     </span>
                   ))}
                 </div>
+                {renderInlineError('subjectsYouTeach')}
 
                 <div className="tr-preset-subjects">
                   <label className="tr-field-hint" style={{ display: 'block', marginBottom: '8px' }}>Select from popular subjects or add custom below:</label>
@@ -1123,8 +1381,10 @@ export const TutorApplicationForm = () => {
                       placeholder="e.g. 500 *"
                       value={formData.expectedFee}
                       onChange={handleChange}
+                      style={getFieldStyle('expectedFee')}
                       required
                     />
+                    {renderInlineError('expectedFee')}
                   </div>
 
                   <div className="tr-field-group">
@@ -1223,6 +1483,7 @@ export const TutorApplicationForm = () => {
                         />
                       </label>
                     )}
+                    {renderInlineError('qualificationDoc')}
                   </div>
 
                   {/* ID Proof Document */}
@@ -1248,6 +1509,7 @@ export const TutorApplicationForm = () => {
                         />
                       </label>
                     )}
+                    {renderInlineError('idProofDoc')}
                   </div>
 
                   {/* Experience Certificate (Optional) */}
@@ -1411,6 +1673,7 @@ export const TutorApplicationForm = () => {
                     I confirm that the information provided by me is accurate and complete. I agree to abide by Smart HomeTutor terms of service and tutor conduct guidelines. <span className="req">*</span>
                   </span>
                 </label>
+                {renderInlineError('declarationAccepted')}
               </div>
             </div>
           )}

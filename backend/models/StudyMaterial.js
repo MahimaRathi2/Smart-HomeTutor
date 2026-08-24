@@ -7,6 +7,12 @@ const studyMaterialSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+      default: null,
+    },
     title: {
       type: String,
       required: true,
@@ -28,6 +34,11 @@ const studyMaterialSchema = new mongoose.Schema(
     description: {
       type: String,
       default: "",
+    },
+    type: {
+      type: String,
+      enum: ["study_material", "homework"],
+      default: "homework",
     },
   },
   {

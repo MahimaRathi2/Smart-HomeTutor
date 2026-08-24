@@ -15,6 +15,18 @@ const paymentSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    tutor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+      default: null,
+    },
+    booking: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BookingRequest",
+      required: false,
+      default: null,
+    },
     role: {
       type: String,
       enum: ["student", "parent", "tutor", "admin"],
@@ -42,12 +54,12 @@ const paymentSchema = new mongoose.Schema(
     },
     paymentType: {
       type: String,
-      enum: ["Wallet Topup", "Tuition Invoice Payment", "Payout Request"],
+      enum: ["Wallet Topup", "Tuition Invoice Payment", "Tuition Fee Payment", "Payout Request"],
       default: "Wallet Topup",
     },
     paymentStatus: {
       type: String,
-      enum: ["Pending", "Success", "Failed"],
+      enum: ["Pending", "Success", "Paid", "Failed"],
       default: "Pending",
     },
   },

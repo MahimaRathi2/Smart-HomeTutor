@@ -77,13 +77,12 @@ const notificationSchema = new mongoose.Schema(
 );
 
 // Pre-save hook to keep isRead and read synchronized
-notificationSchema.pre("save", function (next) {
+notificationSchema.pre("save", function () {
   if (this.isModified("isRead")) {
     this.read = this.isRead;
   } else if (this.isModified("read")) {
     this.isRead = this.read;
   }
-  next();
 });
 
 module.exports = mongoose.model("Notification", notificationSchema);

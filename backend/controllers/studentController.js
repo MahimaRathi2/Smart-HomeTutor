@@ -48,13 +48,13 @@ exports.bookTutor = async (req, res) => {
     const existing = await BookingRequest.findOne({
       student: student._id,
       tutorProfile: tutorProfile._id,
-      status: "Pending",
+      status: { $in: ["Pending", "Pending Admin Approval", "Pending Tutor Acceptance"] },
     });
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `You already have a pending booking request for ${tutorProfile.user.name || "this tutor"}.`,
+        message: `You already have a pending demo class request for ${tutorProfile.user.name || "this tutor"}.`,
       });
     }
 
@@ -62,7 +62,7 @@ exports.bookTutor = async (req, res) => {
       student: student._id,
       tutor: tutorProfile.user._id,
       tutorProfile: tutorProfile._id,
-      message: message || "Demo Class / Home Visit Request",
+      message: message || "Demo Class Request",
       address: address || "",
       coordinates: {
         lat: lat !== undefined ? Number(lat) : 28.6139,
@@ -71,28 +71,21 @@ exports.bookTutor = async (req, res) => {
       isHomeVisit: Boolean(isHomeVisit),
       homeVisitStatus: isHomeVisit ? "Scheduled" : "N/A",
       isTrial: isTrial !== undefined ? Boolean(isTrial) : true,
-    });
-
-    await createNotification({
-      userId: tutorProfile.user._id,
-      title: "New Booking Request 📥",
-      message: `${student.name || "A student"} requested a ${isTrial ? "Trial" : "Regular"} session.`,
-      type: "booking",
-      app: req.app,
+      status: "Pending Admin Approval",
     });
 
     const studentName = student.name || student.email || "Student";
     const tutorName = (tutorProfile.user && tutorProfile.user.name) ? tutorProfile.user.name : "Tutor";
     const subjectName = tutorProfile.primarySubject || "Tuition";
 
-    // Deliver Admin Notification for new Tutor Request
+    // Deliver Admin Notification for new Demo Class Request
     await createAdminNotification({
-      title: "New Tutor Request",
-      message: `${studentName} has submitted a tutor request for ${subjectName}.`,
+      title: "New Demo Class Request",
+      message: `${studentName} has submitted a demo class request for tutor ${tutorName} (${subjectName}).`,
       sourceUser: student._id,
       sourceRole: "student",
       type: "tutor_request",
-      actionUrl: "/dashboard/admin?tab=tutor-verifications",
+      actionUrl: "/dashboard/admin?tab=demo-requests",
       app: req.app,
     });
 
@@ -143,12 +136,12 @@ exports.submitTutorRequest = async (req, res) => {
 
     // Deliver Admin Notification ONLY after successful save
     await createAdminNotification({
-      title: "New Tutor Request",
-      message: `${studentName} has submitted a new tutor request for ${subject.trim()}.`,
+      title: "New Demo Class Request",
+      message: `${studentName} has submitted a new demo class request for ${subject.trim()}.`,
       sourceUser: student._id,
       sourceRole: "student",
       type: "tutor_request",
-      actionUrl: "/dashboard/admin?tab=tutor-verifications",
+      actionUrl: "/dashboard/admin?tab=demo-requests",
       app: req.app,
     });
 
@@ -359,7 +352,7 @@ exports.addReview = async (req, res) => {
     if (profile && profile.user) {
       await createNotification({
         userId: profile.user,
-        title: isUpdate ? "Review Updated ⭐" : "New Review Received ⭐",
+        title: isUpdate ? "Review Updated" : "New Review Received",
         message: `A student rated your profile ${numericRating} stars: "${comment.trim().substring(0, 40)}..."`,
         type: "system",
         app: req.app,
@@ -423,7 +416,7 @@ exports.topupWallet = async (req, res) => {
 
     await createNotification({
       userId: user._id,
-      title: "Wallet Top-up Successful 💰",
+      title: "Wallet Top-up Successful",
       message: `₹${amount} added to your Smart HomeTutor wallet. New Balance: ₹${user.walletBalance}`,
       type: "payment",
       app: req.app,
@@ -454,15 +447,30 @@ exports.getStudentDashboardStats = async (req, res) => {
 
     // Bookings
     const bookings = await BookingRequest.find({ student: studentId })
+      .populate("tutor", "name email phone role isVerified")
       .populate({
         path: "tutorProfile",
         populate: { path: "user", select: "name email phone" },
       })
       .sort({ createdAt: -1 });
 
-    const acceptedBookings = bookings.filter((b) => b.status === "Accepted");
-    const pendingBookings = bookings.filter((b) => b.status === "Pending");
-    const tutorUserIds = acceptedBookings.map((b) => b.tutor.toString());
+    const acceptedBookings = bookings.filter(
+      (b) => b.status === "Accepted" && b.tutor
+    );
+
+    const pendingBookings = bookings.filter(
+      (b) => b.status === "Pending"
+    );
+
+    const uniqueTutorIds = [
+      ...new Set(
+        acceptedBookings.map((b) =>
+          b.tutor?._id
+            ? b.tutor._id.toString()
+            : b.tutor.toString()
+        )
+      ),
+    ];
     const upcomingClasses = await ClassSchedule.find({
       student: studentId,
       status: { $in: ["Scheduled", "Rescheduled"] },
@@ -475,11 +483,11 @@ exports.getStudentDashboardStats = async (req, res) => {
     const absentClasses = await ClassSchedule.countDocuments({ student: studentId, attendance: "Absent" });
     const attendancePercentage = totalClasses > 0 ? Math.round((presentClasses / totalClasses) * 100) : 100;
 
-    const notes = await StudyNote.find({ tutor: { $in: tutorUserIds } })
+    const notes = await StudyNote.find({ student: studentId })
       .populate("tutor", "name email")
       .sort({ createdAt: -1 });
 
-    const materials = await StudyMaterial.find({ tutor: { $in: tutorUserIds } })
+    const materials = await StudyMaterial.find({ student: studentId })
       .populate("tutor", "name email")
       .sort({ createdAt: -1 });
 
@@ -511,7 +519,7 @@ exports.getStudentDashboardStats = async (req, res) => {
       success: true,
       stats: {
         upcomingClassesCount: upcomingClasses.length,
-        activeTutorsCount: tutorUserIds.length,
+        activeTutorsCount: uniqueTutorIds.length,
         pendingBookingsCount: pendingBookings.length,
         walletBalance: student ? student.walletBalance : 0,
         studyMaterialsCount: notes.length + materials.length,
@@ -546,14 +554,12 @@ exports.getStudentDashboardStats = async (req, res) => {
 exports.getStudentStudyMaterials = async (req, res) => {
   try {
     const studentId = req.user.id;
-    const acceptedBookings = await BookingRequest.find({ student: studentId, status: "Accepted" });
-    const tutorUserIds = acceptedBookings.map((b) => b.tutor.toString());
 
-    const notes = await StudyNote.find({ tutor: { $in: tutorUserIds } })
+    const notes = await StudyNote.find({ student: studentId })
       .populate("tutor", "name email")
       .sort({ createdAt: -1 });
 
-    const materials = await StudyMaterial.find({ tutor: { $in: tutorUserIds } })
+    const materials = await StudyMaterial.find({ student: studentId })
       .populate("tutor", "name email")
       .sort({ createdAt: -1 });
 
@@ -805,6 +811,162 @@ exports.getStudentClassSchedule = async (req, res) => {
     });
   } catch (err) {
     console.error("Get Student Class Schedule Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.getMyTutors = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const bookings = await BookingRequest.find({
+      student: studentId,
+      status: { $in: ["Accepted", "Approved", "Confirmed"] },
+      tutor: { $ne: null },
+    })
+      .populate("tutor", "name email")
+      .populate("tutorProfile", "subjects specialization fullName");
+
+    const tutorUserIds = bookings
+      .filter((b) => b.tutor && b.tutor._id)
+      .map((b) => b.tutor._id);
+
+    const tutorProfileIds = bookings
+      .filter((b) => b.tutorProfile)
+      .map((b) => (b.tutorProfile._id ? b.tutorProfile._id : b.tutorProfile));
+
+    const profiles = await TutorProfile.find({
+      $or: [
+        { user: { $in: tutorUserIds } },
+        { _id: { $in: tutorProfileIds } },
+      ],
+    }).select("user subjects specialization fullName");
+
+    const profileByUserMap = new Map();
+    const profileByIdMap = new Map();
+    profiles.forEach((p) => {
+      if (p.user) profileByUserMap.set(p.user.toString(), p);
+      if (p._id) profileByIdMap.set(p._id.toString(), p);
+    });
+
+    const tutorsMap = new Map();
+    bookings.forEach((b) => {
+      if (b.tutor && b.tutor._id) {
+        const tIdStr = b.tutor._id.toString();
+
+        let tp = b.tutorProfile && typeof b.tutorProfile === "object" && b.tutorProfile.subjects ? b.tutorProfile : null;
+        if (!tp) {
+          tp = profileByUserMap.get(tIdStr);
+        }
+        if (!tp && b.tutorProfile) {
+          tp = profileByIdMap.get(b.tutorProfile.toString());
+        }
+
+        let subjectStr = "";
+        if (tp && Array.isArray(tp.subjects) && tp.subjects.length > 0) {
+          subjectStr = tp.subjects.filter(Boolean).join(", ");
+        } else if (tp && tp.specialization) {
+          subjectStr = Array.isArray(tp.specialization)
+            ? tp.specialization.filter(Boolean).join(", ")
+            : String(tp.specialization);
+        }
+
+        tutorsMap.set(tIdStr, {
+          _id: b.tutor._id,
+          name: b.tutor.name || (tp ? tp.fullName : "") || "Tutor",
+          email: b.tutor.email,
+          subject: subjectStr,
+        });
+      }
+    });
+
+    const tutors = Array.from(tutorsMap.values());
+    return res.status(200).json({ success: true, tutors });
+  } catch (err) {
+    console.error("Get My Tutors Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.submitHomework = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const { tutorId, title, subject, description } = req.body;
+
+    if (!tutorId || !title || !subject) {
+      return res.status(400).json({
+        success: false,
+        message: "Tutor selection, title, and subject are required.",
+      });
+    }
+
+    // Verify legitimate relationship
+    const validRelationship = await BookingRequest.findOne({
+      student: studentId,
+      tutor: tutorId,
+      status: { $in: ["Accepted", "Approved", "Confirmed"] },
+    });
+
+    if (!validRelationship) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only submit homework to tutors assigned to you.",
+      });
+    }
+
+    let fileUrl = "";
+    if (req.file) {
+      fileUrl = `/uploads/${req.file.filename}`;
+    } else if (req.body.fileUrl) {
+      fileUrl = req.body.fileUrl;
+    }
+
+    const homework = await StudyMaterial.create({
+      tutor: tutorId,
+      student: studentId,
+      title: title.trim(),
+      subject: subject.trim(),
+      description: description ? description.trim() : "",
+      fileUrl,
+      type: "homework",
+    });
+
+    const student = await User.findById(studentId);
+    const studentName = student ? student.name : "Student";
+
+    // Deliver notification ONLY to the selected tutor
+    await createNotification({
+      userId: tutorId,
+      title: "New Homework Received",
+      message: `New homework "${title}" received from ${studentName}.`,
+      type: "assignment",
+      actionUrl: "/dashboard/tutor?tab=assignments",
+      app: req.app,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Homework submitted successfully to tutor!",
+      homework,
+    });
+  } catch (err) {
+    console.error("Submit Homework Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.getStudentSubmittedHomework = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const homeworks = await StudyMaterial.find({
+      student: studentId,
+      type: "homework",
+    })
+      .populate("tutor", "name email")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, homeworks });
+  } catch (err) {
+    console.error("Get Student Submitted Homework Error:", err);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };

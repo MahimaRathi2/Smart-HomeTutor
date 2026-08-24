@@ -83,7 +83,10 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
   };
 
   const handleDeleteNotification = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this notification?')) return;
+    const confirmed = window.showCustomConfirm
+      ? await window.showCustomConfirm('Are you sure you want to delete this notification?', 'Delete Notification', 'Delete', 'Cancel')
+      : window.confirm('Are you sure you want to delete this notification?');
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/admin/notifications/${id}`, {
         method: 'DELETE',

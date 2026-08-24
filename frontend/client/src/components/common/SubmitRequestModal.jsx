@@ -22,7 +22,15 @@ export const SubmitRequestModal = ({ isOpen, onClose, onSuccess }) => {
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    let value = e.target.value;
+
+    if (name === 'phone') {
+      value = value.replace(/\D/g, '').slice(0, 10);
+    } else if (name === 'budget') {
+      value = value.replace(/\D/g, '');
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -32,6 +40,11 @@ export const SubmitRequestModal = ({ isOpen, onClose, onSuccess }) => {
 
     if (!formData.fullName.trim() || !formData.phone.trim() || !formData.location.trim()) {
       setError('Please fill in all required fields (Name, Phone Number, and Location).');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(formData.phone.trim())) {
+      setError('Mobile number must contain exactly 10 digits.');
       return;
     }
 

@@ -14,7 +14,10 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
       return;
     }
 
-    if (!window.confirm(`Submit a completion certificate request to Admin for ${item.student?.name || 'Student'} (${courseName})?`)) return;
+    const confirmed = window.showCustomConfirm
+      ? await window.showCustomConfirm(`Submit a completion certificate request to Admin for ${item.student?.name || 'Student'} (${courseName})?`, 'Certificate Request', 'Submit Request', 'Cancel')
+      : window.confirm(`Submit a completion certificate request to Admin for ${item.student?.name || 'Student'} (${courseName})?`);
+    if (!confirmed) return;
 
     try {
       const res = await tutorApi.requestCertificate({

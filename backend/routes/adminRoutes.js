@@ -30,6 +30,9 @@ router.patch("/user/:id/role", adminController.updateUserRole);
 router.delete("/user/:id", adminController.deleteUser);
 
 router.get("/bookings", adminController.getAllBookings);
+router.patch("/bookings/:id/approve", adminController.approveBookingRequest);
+router.patch("/bookings/:id/reject", adminController.rejectBookingRequest);
+router.delete("/bookings/:id", adminController.deleteBookingRequest);
 router.post("/announcement", adminController.createAnnouncement);
 router.get("/announcements", adminController.getAnnouncements);
 
@@ -38,6 +41,9 @@ router.post("/bulk-notification", adminController.sendBulkNotification);
 router.get("/activity-logs", adminController.getActivityLogs);
 router.get("/security-audit", adminController.getSecurityAudit);
 router.get("/pending-documents", adminController.getPendingDocuments);
+router.get("/tutor-applications", adminController.getTutorApplications);
+router.get("/tutor-applications/:id", adminController.getTutorApplicationDetails);
+router.post("/tutor-applications/:tutorProfileId/verify", adminController.verifyTutorDocument);
 router.patch("/document-verify/:tutorProfileId", adminController.verifyTutorDocument);
 router.get("/blogs", adminController.getAllBlogs);
 router.post("/blogs", adminController.createBlog);
@@ -73,5 +79,9 @@ router.get("/notifications/unread-count", adminController.getAdminUnreadCount);
 router.patch("/notifications/read-all", adminController.markAllAdminNotificationsAsRead);
 router.patch("/notifications/:id/read", adminController.markAdminNotificationAsRead);
 router.delete("/notifications/:id", adminController.deleteAdminNotification);
+
+// Admin Chat Unlock Management Routes
+router.patch("/booking/:id/toggle-chat-unlock", adminController.toggleBookingChatUnlock);
+router.patch("/user/:id/toggle-chat-unlock", adminController.toggleUserChatUnlock);
 
 module.exports = router;

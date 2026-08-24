@@ -7,6 +7,12 @@ const studyNoteSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+      default: null,
+    },
 
     title: {
       type: String,

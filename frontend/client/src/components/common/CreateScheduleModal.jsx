@@ -241,11 +241,14 @@ export const CreateScheduleModal = ({ isOpen, onClose, onSuccess, userRole = 'tu
                   background: '#f8fafc',
                 }}
               >
-                {tutors.map((tut) => (
-                  <option key={tut._id} value={tut._id}>
-                    {tut.name} ({tut.email})
-                  </option>
-                ))}
+                {tutors.map((tut) => {
+                  const subjectDisplay = tut.subject ? ` — ${tut.subject}` : '';
+                  return (
+                    <option key={tut._id} value={tut._id}>
+                      {tut.name}{subjectDisplay}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}

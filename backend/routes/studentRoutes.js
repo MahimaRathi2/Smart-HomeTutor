@@ -27,11 +27,18 @@ router.get("/favorites", requireAuth, authorizeRole("student"), studentControlle
 router.post("/review", requireAuth, authorizeRole("student"), studentController.addReview);
 router.get("/review/:tutorProfileId", requireAuth, authorizeRole("student"), studentController.getStudentReviewForTutor);
 
+const tutorDocUpload = require("../utils/tutorUploadMiddleware");
+
 // Wallet & Dashboard Aggregates
 router.post("/wallet/topup", requireAuth, authorizeRole("student"), studentController.topupWallet);
 router.get("/dashboard-stats", requireAuth, authorizeRole("student"), studentController.getStudentDashboardStats);
 router.get("/study-materials", requireAuth, authorizeRole("student"), studentController.getStudentStudyMaterials);
 router.get("/study-notes", requireAuth, authorizeRole("student"), studentController.getStudentStudyNotes);
+
+// Recipient-Specific Student Homework Endpoints
+router.get("/my-tutors", requireAuth, authorizeRole("student"), studentController.getMyTutors);
+router.post("/submit-homework", requireAuth, authorizeRole("student"), tutorDocUpload.single("file"), studentController.submitHomework);
+router.get("/submitted-homework", requireAuth, authorizeRole("student"), studentController.getStudentSubmittedHomework);
 
 // Certificates, Class Schedule & Referral Program
 router.get("/certificates", requireAuth, authorizeRole("student"), studentController.getCertificates);

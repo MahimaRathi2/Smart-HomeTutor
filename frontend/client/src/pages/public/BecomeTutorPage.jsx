@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
-import { TutorApplicationForm } from '../../components/tutor/TutorApplicationForm';
 import { TutorTestimonials } from '../../components/tutor/TutorTestimonials';
 
 export const BecomeTutorPage = () => {
+  const navigate = useNavigate();
+
   useEffect(() => {
     // Scroll reveal observer for tutor page
     const observer = new IntersectionObserver(
@@ -70,33 +72,33 @@ export const BecomeTutorPage = () => {
     {
       num: '01',
       icon: 'fa-file-circle-check',
-      title: 'Apply Online',
-      desc: 'Fill out the application form with your personal and teaching details.',
+      title: 'Sign Up',
+      desc: 'Create your free Tutor account with your email and password.',
     },
     {
       num: '02',
       icon: 'fa-user-check',
       title: 'Profile Verification',
-      desc: 'Our team reviews your qualifications and teaching experience.',
+      desc: 'Submit your teaching qualifications and documents for admin review.',
     },
     {
       num: '03',
       icon: 'fa-comments',
-      title: 'Demo Session',
-      desc: 'Attend a short interaction or demo class if required.',
+      title: 'Account Approval',
+      desc: 'Get notified via Notifications as soon as your tutor status is approved.',
     },
     {
       num: '04',
       icon: 'fa-graduation-cap',
       title: 'Start Teaching',
-      desc: 'Receive student requests and begin teaching immediately.',
+      desc: 'Unlock your Tutor Dashboard, receive student requests, and begin teaching.',
     },
   ];
 
   const scrollToSection = (id) => {
     const el = document.getElementById(id);
     if (el) {
-      el.scrollIntoView({ top:0 , behavior: 'smooth' });
+      el.scrollIntoView({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -121,7 +123,7 @@ export const BecomeTutorPage = () => {
               <button
                 type="button"
                 className="tr-primary-btn"
-                onClick={() => scrollToSection('application')}
+                onClick={() => navigate('/signup?role=tutor')}
               >
                 Apply Now
               </button>
@@ -195,15 +197,21 @@ export const BecomeTutorPage = () => {
         </div>
       </section>
 
-      {/* APPLICATION FORM SECTION */}
-      <section id="application" className="tr-application tr-reveal-on-scroll">
-        <div className="container">
-          <div className="tr-section-title text-center">
-            <h2>Teacher Registration Portal</h2>
-            <p>Complete the 5-step registration form below to join our network of verified home & online tutors.</p>
+      {/* READY TO TEACH CTA SECTION */}
+      <section className="tr-application tr-reveal-on-scroll">
+        <div className="container" style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <div className="tr-section-title text-center" style={{ marginBottom: '24px' }}>
+            <h2>Ready to Start Teaching?</h2>
+            <p>Create your Tutor account today and connect with thousands of students looking for expert guidance.</p>
           </div>
-
-          <TutorApplicationForm />
+          <button
+            type="button"
+            className="tr-primary-btn"
+            style={{ margin: '0 auto', padding: '14px 36px', fontSize: '16px' }}
+            onClick={() => navigate('/signup?role=tutor')}
+          >
+            Apply Now — Create Tutor Account
+          </button>
         </div>
       </section>
 

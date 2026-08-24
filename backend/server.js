@@ -184,6 +184,8 @@ app.use((req, res, next) => {
 });
 
 // Authentication API & Action Routes
+const announcementRoutes = require("./routes/announcementRoutes");
+
 app.use("/api/auth", authRoutes);
 app.use("/api/student", studentRoutes);
 app.use("/api/tutor", tutorRoutes);
@@ -196,6 +198,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/coupon", couponRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/announcements", announcementRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/content", contentRoutes);

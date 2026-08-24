@@ -16,9 +16,20 @@ import { RequestTutorModal } from '../../components/student/modals/RequestTutorM
 import { AIRecommendationsModal } from '../../components/student/modals/AIRecommendationsModal';
 
 import { NotificationsTab } from '../../components/common/NotificationsTab';
+import { useDashboardTab } from '../../hooks/useDashboardTab';
+
+const STUDENT_VALID_TABS = [
+  'overview',
+  'notifications',
+  'search-tutors',
+  'schedule',
+  'learning',
+  'chat',
+  'payments',
+];
 
 export const StudentDashboardPage = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useDashboardTab('student_activeTab', 'overview', STUDENT_VALID_TABS);
   const [studentUser, setStudentUser] = useState(null);
   const [statsData, setStatsData] = useState(null);
   const [tutors, setTutors] = useState([]);
@@ -90,7 +101,7 @@ export const StudentDashboardPage = () => {
 
   const handleStartVideoCall = () => {
     if (statsData && statsData.bookings) {
-      const acceptedBooking = statsData.bookings.find((b) => b.status === 'Accepted');
+      const acceptedBooking = statsData.bookings.find((b) => b.status === 'Accepted' || b.status === 'Confirmed');
       if (acceptedBooking) {
         window.location.href = `/video-call/${acceptedBooking._id}`;
         return;

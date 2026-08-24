@@ -40,9 +40,19 @@ export const adminApi = {
     return res.json();
   },
 
+  async getTutorApplications(status = 'all') {
+    const res = await fetch(`/api/admin/tutor-applications?status=${status}`, { headers: { Accept: 'application/json' } });
+    return res.json();
+  },
+
+  async getTutorApplicationDetails(id) {
+    const res = await fetch(`/api/admin/tutor-applications/${id}`, { headers: { Accept: 'application/json' } });
+    return res.json();
+  },
+
   async verifyDocument(tutorProfileId, status = 'Approved') {
-    const res = await fetch(`/api/admin/document-verify/${tutorProfileId}`, {
-      method: 'PATCH',
+    const res = await fetch(`/api/admin/tutor-applications/${tutorProfileId}/verify`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ status })
     });
@@ -112,6 +122,28 @@ export const adminApi = {
   async rejectPayout(id) {
     const res = await fetch(`/api/admin/payout-requests/${id}/reject`, {
       method: 'POST',
+      headers: { Accept: 'application/json' }
+    });
+    return res.json();
+  },
+
+  // Demo Class & Booking Management
+  async getAllBookings() {
+    const res = await fetch('/api/admin/bookings', { headers: { Accept: 'application/json' } });
+    return res.json();
+  },
+
+  async approveBooking(bookingId) {
+    const res = await fetch(`/api/admin/bookings/${bookingId}/approve`, {
+      method: 'PATCH',
+      headers: { Accept: 'application/json' }
+    });
+    return res.json();
+  },
+
+  async rejectBooking(bookingId) {
+    const res = await fetch(`/api/admin/bookings/${bookingId}/reject`, {
+      method: 'PATCH',
       headers: { Accept: 'application/json' }
     });
     return res.json();
@@ -201,6 +233,31 @@ export const adminApi = {
 
   async deleteBlog(id) {
     const res = await fetch(`/api/admin/blogs/${id}`, {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' }
+    });
+    return res.json();
+  },
+
+  // Admin Chat Unlock Management
+  async toggleBookingChatUnlock(bookingId) {
+    const res = await fetch(`/api/admin/booking/${bookingId}/toggle-chat-unlock`, {
+      method: 'PATCH',
+      headers: { Accept: 'application/json' }
+    });
+    return res.json();
+  },
+
+  async toggleUserChatUnlock(userId) {
+    const res = await fetch(`/api/admin/user/${userId}/toggle-chat-unlock`, {
+      method: 'PATCH',
+      headers: { Accept: 'application/json' }
+    });
+    return res.json();
+  },
+
+  async deleteBooking(bookingId) {
+    const res = await fetch(`/api/admin/bookings/${bookingId}`, {
       method: 'DELETE',
       headers: { Accept: 'application/json' }
     });

@@ -2,6 +2,7 @@
 @import './styles/student-dashboard.css';
 @import './styles/parent-dashboard.css';
 @import '../../public/css/login.css';
+@import '../../public/css/popup.css';
 
 :root {
   --primary: #213547;

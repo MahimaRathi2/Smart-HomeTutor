@@ -43,6 +43,7 @@ const sendTokenResponse = (user, statusCode, req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        tutorStatus: user.role === "tutor" ? (user.tutorStatus || "not_applied") : undefined,
         referralCode: user.referralCode,
         walletBalance: user.walletBalance,
       },
@@ -91,6 +92,12 @@ exports.signup = async (req, res) => {
     }
     if (!isValidEmailFormat(normalizedEmail)) {
       const msg = "Please enter a valid email address format.";
+      if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
+      return res.redirect("/signup?error=" + encodeURIComponent(msg));
+    }
+
+    if (phone && !/^\d{10}$/.test(String(phone).trim())) {
+      const msg = "Mobile number must contain exactly 10 digits.";
       if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
       return res.redirect("/signup?error=" + encodeURIComponent(msg));
     }
@@ -208,6 +215,7 @@ exports.signup = async (req, res) => {
       phone: phone || "",
       password: hashedPassword,
       role: requestedRole,
+      tutorStatus: requestedRole === "tutor" ? "not_applied" : undefined,
       walletBalance: initialWallet,
       referralCode: newReferralCode,
       referredBy: validReferredBy,

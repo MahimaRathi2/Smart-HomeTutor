@@ -4,6 +4,7 @@ const TutorProfile = require("../models/TutorProfile");
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
 const StudyMaterial = require("../models/StudyMaterial");
+const StudyNote = require("../models/StudyNote");
 const Review = require("../models/Review");
 const ClassSchedule = require("../models/ClassSchedule");
 const Certificate = require("../models/Certificate");
@@ -34,12 +35,37 @@ exports.getTutorProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const tutorProfile = await TutorProfile.findOne({ user: user._id }).populate("user", "name email phone");
-    if (!tutorProfile) {
-      return res.status(404).json({ success: false, message: "Tutor profile not found" });
+    const tutorProfile = await TutorProfile.findOne({ user: user._id }).sort({ createdAt: -1 }).populate("user", "name email phone role tutorStatus");
+
+    let tutorStatus = user.tutorStatus || "not_applied";
+    if (tutorProfile) {
+      if (tutorProfile.registrationStatus === "Approved" && tutorStatus !== "approved") {
+        user.tutorStatus = "approved";
+        await user.save();
+        tutorStatus = "approved";
+      } else if (tutorProfile.registrationStatus === "Pending" && tutorStatus === "not_applied") {
+        user.tutorStatus = "pending";
+        await user.save();
+        tutorStatus = "pending";
+      } else if (tutorProfile.registrationStatus === "Rejected" && tutorStatus !== "rejected") {
+        user.tutorStatus = "rejected";
+        await user.save();
+        tutorStatus = "rejected";
+      }
     }
 
-    return res.status(200).json({ success: true, tutorProfile });
+    return res.status(200).json({
+      success: true,
+      tutorProfile: tutorProfile || null,
+      tutorStatus,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
+    });
   } catch (error) {
     console.error("Get Tutor Profile Error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
@@ -49,6 +75,8 @@ exports.getTutorProfile = async (req, res) => {
 exports.createTutorProfile = async (req, res) => {
   try {
     const {
+      firstName,
+      lastName,
       fullName,
       gender,
       dob,
@@ -139,6 +167,42 @@ exports.createTutorProfile = async (req, res) => {
 
     const userId = (req.user && req.user.id) ? req.user.id : null;
 
+    // Backend mandatory fields validation across all steps
+    const compName = (fullName || `${firstName || ""} ${lastName || ""}`).trim();
+    if (!compName) {
+      return res.status(400).json({ success: false, message: "First Name and Last Name / Full Name are required." });
+    }
+    if (!mobile || !/^\d{10}$/.test(String(mobile).trim())) {
+      return res.status(400).json({ success: false, message: "Mobile number must contain exactly 10 digits." });
+    }
+    if (whatsapp && String(whatsapp).trim() && !/^\d{10}$/.test(String(whatsapp).trim())) {
+      return res.status(400).json({ success: false, message: "WhatsApp number must contain exactly 10 digits." });
+    }
+    if (pincode && String(pincode).trim() && !/^\d{6}$/.test(String(pincode).trim())) {
+      return res.status(400).json({ success: false, message: "Pincode must contain exactly 6 digits." });
+    }
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ success: false, message: "Email Address is required." });
+    }
+    if (!currentAddress || !String(currentAddress).trim()) {
+      return res.status(400).json({ success: false, message: "Current Address is required." });
+    }
+    if (!city || !String(city).trim()) {
+      return res.status(400).json({ success: false, message: "City is required." });
+    }
+    if (!highestQualification && !qualification) {
+      return res.status(400).json({ success: false, message: "Highest Qualification is required." });
+    }
+    if (!totalExperience && !experience) {
+      return res.status(400).json({ success: false, message: "Total Teaching Experience is required." });
+    }
+    if (subjectsArray.length === 0) {
+      return res.status(400).json({ success: false, message: "At least one Subject is required." });
+    }
+    if (classesArray.length === 0) {
+      return res.status(400).json({ success: false, message: "At least one Class is required." });
+    }
+
     // Process File Uploads from req.files
     const documents = [];
     let profileImageUrl = "";
@@ -202,10 +266,14 @@ exports.createTutorProfile = async (req, res) => {
     const numFee = Number(expectedFee || fee) || 0;
     const numExp = Number(totalExperience || experience) || 0;
 
+    const computedFullName = (fullName || `${firstName || ''} ${lastName || ''}`).trim();
+
     // ALWAYS create a NEW TutorProfile application document
     const tutorProfile = await TutorProfile.create({
       user: userId,
-      fullName: fullName || (req.user ? req.user.name : "") || "Tutor Applicant",
+      firstName: firstName || "",
+      lastName: lastName || "",
+      fullName: computedFullName || (req.user ? req.user.name : "") || "Tutor Applicant",
       gender: gender || "Not Specified",
       dob: dob || "",
       mobile: mobile || (req.user ? req.user.phone : "") || "",
@@ -275,6 +343,7 @@ exports.createTutorProfile = async (req, res) => {
     });
 
     if (userId) {
+      await User.findByIdAndUpdate(userId, { tutorStatus: "pending" });
       await logUserActivity(userId, `Registered new tutor application (#${tutorProfile._id})`, req.ip);
     }
 
@@ -282,6 +351,7 @@ exports.createTutorProfile = async (req, res) => {
       success: true,
       message: "Tutor registration application submitted successfully.",
       tutorProfile,
+      tutorStatus: "pending",
     });
   } catch (error) {
     console.error("Create Tutor Profile Error:", error);
@@ -388,9 +458,13 @@ exports.getAllTutors = async (req, res) => {
 exports.getBookingRequests = async (req, res) => {
   try {
     const tutorId = req.user.id;
-    const requests = await BookingRequest.find({ tutor: tutorId })
+    // Only return demo class requests that have passed Admin Approval and are awaiting Tutor response or already actioned by tutor
+    const requests = await BookingRequest.find({
+      tutor: tutorId,
+      status: { $in: ["Pending Tutor Acceptance", "Approved", "Accepted", "Confirmed", "Rejected by Tutor"] },
+    })
       .populate("student", "name email phone role")
-      .populate("tutorProfile", "qualification fee subjects location")
+      .populate("tutorProfile", "qualification fee subjects location primarySubject")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({ success: true, requests });
@@ -402,113 +476,90 @@ exports.getBookingRequests = async (req, res) => {
 
 exports.acceptBookingRequest = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid booking ID." });
-    }
-
-    const booking = await BookingRequest.findOne({ _id: id, tutor: req.user.id }).populate("student", "name email phone");
+    const requestId = req.params.id || req.params.bookingId;
+    const booking = await BookingRequest.findOne({ _id: requestId, tutor: req.user.id })
+      .populate("student", "name email phone");
 
     if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking request not found." });
+      return res.status(404).json({ success: false, message: "Demo class request not found or not assigned to you." });
     }
 
-    booking.status = "Accepted";
+    booking.status = "Confirmed";
     await booking.save();
 
+    const tutorUser = await User.findById(req.user.id);
+    const tutorName = tutorUser ? tutorUser.name : "Tutor";
+
+    // Deliver notification to Student that Tutor has accepted
     if (booking.student) {
       await createNotification({
         userId: booking.student._id,
-        title: "Booking Request Accepted 🎉",
-        message: `Your tutor request has been accepted! You can now start scheduling live sessions.`,
+        title: "Demo Class Confirmed 🎉",
+        message: `Your demo class request has been accepted by ${tutorName}.`,
         type: "booking",
         app: req.app,
       });
     }
 
-    const tutorAcceptName = req.user.name || "Tutor";
-    const studentAcceptName = (booking.student && booking.student.name) ? booking.student.name : "Student";
-    await logUserActivity(req.user.id, `${tutorAcceptName} accepted the booking request from ${studentAcceptName}`, req.ip);
+    await logUserActivity(req.user.id, `Tutor ${tutorName} accepted demo class request (${booking._id})`, req.ip);
 
     return res.status(200).json({
       success: true,
-      message: `Booking request from ${booking.student ? booking.student.name : "Student"} ACCEPTED!`,
+      message: `Demo class request ACCEPTED successfully!`,
       booking,
     });
   } catch (err) {
-    console.error("Accept Booking Error:", err);
+    console.error("Tutor Accept Booking Error:", err);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
 exports.rejectBookingRequest = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid booking ID." });
-    }
-
-    const booking = await BookingRequest.findOne({ _id: id, tutor: req.user.id }).populate("student", "name email phone");
+    const requestId = req.params.id || req.params.bookingId;
+    const booking = await BookingRequest.findOne({ _id: requestId, tutor: req.user.id })
+      .populate("student", "name email phone");
 
     if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking request not found." });
+      return res.status(404).json({ success: false, message: "Demo class request not found or not assigned to you." });
     }
 
-    booking.status = "Rejected";
+    booking.status = "Rejected by Tutor";
     await booking.save();
 
+    const tutorUser = await User.findById(req.user.id);
+    const tutorName = tutorUser ? tutorUser.name : "Tutor";
+
+    // Deliver notification to Student that Tutor declined
     if (booking.student) {
       await createNotification({
         userId: booking.student._id,
-        title: "Booking Request Update",
-        message: `Your tutor demo request was declined. Feel free to search and book other verified tutors.`,
+        title: "Demo Class Request Update",
+        message: `Your demo class request has been declined by the tutor.`,
         type: "booking",
         app: req.app,
       });
     }
 
-    const tutorRejectName = req.user.name || "Tutor";
-    const studentRejectName = (booking.student && booking.student.name) ? booking.student.name : "Student";
-    await logUserActivity(req.user.id, `${tutorRejectName} declined the booking request from ${studentRejectName}`, req.ip);
+    await logUserActivity(req.user.id, `Tutor ${tutorName} declined demo class request (${booking._id})`, req.ip);
 
     return res.status(200).json({
       success: true,
-      message: `Booking request from ${booking.student ? booking.student.name : "Student"} REJECTED.`,
+      message: "Demo class request declined.",
       booking,
     });
   } catch (err) {
-    console.error("Reject Booking Error:", err);
+    console.error("Tutor Reject Booking Error:", err);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
 exports.respondBookingRequest = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!["Accepted", "Rejected"].includes(status)) {
-      return res.status(400).json({ success: false, message: "Status must be Accepted or Rejected" });
-    }
-
-    const booking = await BookingRequest.findOne({ _id: id, tutor: req.user.id });
-    if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking request not found" });
-    }
-
-    booking.status = status;
-    await booking.save();
-
-    return res.status(200).json({
-      success: true,
-      message: `Booking request ${status.toLowerCase()} successfully.`,
-      booking,
-    });
-  } catch (err) {
-    console.error("Respond Booking Error:", err);
-    return res.status(500).json({ success: false, message: "Server Error" });
+  const { action } = req.body;
+  if (action === 'accept') {
+    return exports.acceptBookingRequest(req, res);
+  } else {
+    return exports.rejectBookingRequest(req, res);
   }
 };
 
@@ -746,13 +797,123 @@ exports.getTutorDashboardStats = async (req, res) => {
   }
 };
 
+exports.getMyStudents = async (req, res) => {
+  try {
+    const tutorId = req.user.id;
+    const acceptedBookings = await BookingRequest.find({ tutor: tutorId, status: "Accepted" })
+      .populate("student", "name email phone role")
+      .sort({ updatedAt: -1 });
+
+    const studentMap = new Map();
+    for (const b of acceptedBookings) {
+      if (b.student && b.student._id && !studentMap.has(b.student._id.toString())) {
+        studentMap.set(b.student._id.toString(), {
+          _id: b.student._id,
+          name: b.student.name || "Student",
+          email: b.student.email,
+          subject: b.subject || "General",
+        });
+      }
+    }
+
+    const students = Array.from(studentMap.values());
+    return res.status(200).json({ success: true, students });
+  } catch (err) {
+    console.error("Get My Students Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.uploadNote = async (req, res) => {
+  try {
+    const { title, subject, class: className, student: studentId, board } = req.body;
+    const tutorId = req.user.id;
+
+    if (!title || !subject || !className) {
+      return res.status(400).json({ success: false, message: "Title, subject, and class are required." });
+    }
+
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: "Please select a student to receive these notes." });
+    }
+
+    // Verify student is legitimately assigned/accepted by this tutor
+    const isAssigned = await BookingRequest.exists({
+      tutor: tutorId,
+      student: studentId,
+      status: { $in: ["Accepted", "Approved", "Confirmed"] },
+    });
+    if (!isAssigned) {
+      return res.status(403).json({ success: false, message: "Unauthorized: You can only share notes with your assigned students." });
+    }
+
+    let fileUrl = "";
+    if (req.file) {
+      fileUrl = `/uploads/documents/${req.file.filename}`;
+    }
+
+    const note = await StudyNote.create({
+      tutor: tutorId,
+      student: studentId,
+      title,
+      subject,
+      board: board || "CBSE",
+      class: className,
+      fileUrl: fileUrl || "/uploads/documents/default-notes.pdf",
+    });
+
+    await StudyMaterial.create({
+      tutor: tutorId,
+      student: studentId,
+      title,
+      subject,
+      targetGrade: className,
+      fileUrl: fileUrl || "/uploads/documents/default-notes.pdf",
+      description: `Class: ${className}`,
+    }).catch(() => {});
+
+    await createNotification({
+      userId: studentId,
+      title: "New Study Note Received 📚",
+      message: `Your tutor uploaded new notes: ${title} (${subject})`,
+      type: "assignment",
+      app: req.app,
+    });
+
+    const matTutorName = req.user.name || "Tutor";
+    await logUserActivity(tutorId, `${matTutorName} uploaded note: ${title}`, req.ip);
+
+    return res.status(201).json({
+      success: true,
+      message: "Study Note uploaded and shared with student successfully!",
+      note,
+    });
+  } catch (err) {
+    console.error("Upload Note Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 exports.uploadMaterial = async (req, res) => {
   try {
-    const { title, subject, targetGrade, description, fileUrl: bodyFileUrl } = req.body;
+    const { title, subject, targetGrade, description, fileUrl: bodyFileUrl, student: studentId } = req.body;
     const tutorId = req.user.id;
 
     if (!title || !subject) {
       return res.status(400).json({ success: false, message: "Title and subject are required." });
+    }
+
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: "Please select a student to receive these notes." });
+    }
+
+    const isAssigned = await BookingRequest.exists({
+      tutor: tutorId,
+      student: studentId,
+      status: { $in: ["Accepted", "Approved", "Confirmed"] },
+    });
+    if (!isAssigned) {
+      return res.status(403).json({ success: false, message: "Unauthorized: You can only share notes with your assigned students." });
     }
 
     let fileUrl = bodyFileUrl || "";
@@ -762,6 +923,7 @@ exports.uploadMaterial = async (req, res) => {
 
     const material = await StudyMaterial.create({
       tutor: tutorId,
+      student: studentId,
       title,
       subject,
       targetGrade: targetGrade || "All Grades",
@@ -769,17 +931,23 @@ exports.uploadMaterial = async (req, res) => {
       description: description || "",
     });
 
+    await StudyNote.create({
+      tutor: tutorId,
+      student: studentId,
+      title,
+      subject,
+      board: "CBSE",
+      class: targetGrade || "General",
+      fileUrl: fileUrl || "/uploads/materials/default-notes.pdf",
+    }).catch(() => {});
 
-    const acceptedBookings = await BookingRequest.find({ tutor: tutorId, status: "Accepted" });
-    for (const b of acceptedBookings) {
-      await createNotification({
-        userId: b.student,
-        title: "New Assignment / Study Material 📚",
-        message: `Your tutor uploaded new material: ${title} (${subject})`,
-        type: "assignment",
-        app: req.app,
-      });
-    }
+    await createNotification({
+      userId: studentId,
+      title: "New Assignment / Study Material 📚",
+      message: `Your tutor uploaded new material: ${title} (${subject})`,
+      type: "assignment",
+      app: req.app,
+    });
 
     const matTutorName = req.user.name || "Tutor";
     await logUserActivity(tutorId, `${matTutorName} uploaded study material: ${title}`, req.ip);
@@ -797,7 +965,9 @@ exports.uploadMaterial = async (req, res) => {
 
 exports.getTutorStudyMaterials = async (req, res) => {
   try {
-    const materials = await StudyMaterial.find({ tutor: req.user.id }).sort({ createdAt: -1 });
+    const materials = await StudyMaterial.find({ tutor: req.user.id })
+      .populate("student", "name email")
+      .sort({ createdAt: -1 });
     return res.status(200).json({ success: true, materials });
   } catch (err) {
     console.error("Get Tutor Study Materials Error:", err);
@@ -987,3 +1157,21 @@ exports.requestCertificate = async (req, res) => {
 };
 
 exports.issueCertificate = exports.requestCertificate;
+
+exports.getReceivedHomework = async (req, res) => {
+  try {
+    const tutorId = req.user.id;
+    const homeworks = await StudyMaterial.find({
+      tutor: tutorId,
+      student: { $ne: null },
+      type: "homework",
+    })
+      .populate("student", "name email")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, homeworks });
+  } catch (err) {
+    console.error("Get Received Homework Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};

@@ -1898,7 +1898,10 @@ window.adminVerifyTutor = async function(tutorProfileId) {
 };
 
 window.adminDeleteTutor = async function(tutorProfileId) {
-    if (!confirm("Are you sure you want to delete/reject this tutor profile?")) return;
+    const confirmed = window.showCustomConfirm
+        ? await window.showCustomConfirm("Are you sure you want to delete/reject this tutor profile?", "Delete Tutor", "Delete", "Cancel")
+        : confirm("Are you sure you want to delete/reject this tutor profile?");
+    if (!confirmed) return;
     try {
         const response = await fetch(`/api/admin/tutor/${tutorProfileId}`, {
             method: "DELETE",
@@ -3371,7 +3374,10 @@ window.loadAdminPayoutRequests = async function() {
 };
 
 window.approveAdminPayout = async function(payoutId, tutorName, amount) {
-    if (!confirm(`Are you sure you want to APPROVE and process payout of ₹${amount.toLocaleString('en-IN')} for ${tutorName}?`)) return;
+    const confirmed = window.showCustomConfirm
+        ? await window.showCustomConfirm(`Are you sure you want to APPROVE and process payout of ₹${amount.toLocaleString('en-IN')} for ${tutorName}?`, "Approve Payout", "Approve", "Cancel")
+        : confirm(`Are you sure you want to APPROVE and process payout of ₹${amount.toLocaleString('en-IN')} for ${tutorName}?`);
+    if (!confirmed) return;
 
     try {
         const res = await fetch(`/api/admin/payout-requests/${payoutId}/approve`, { method: "POST" });
@@ -3389,7 +3395,9 @@ window.approveAdminPayout = async function(payoutId, tutorName, amount) {
 };
 
 window.rejectAdminPayout = async function(payoutId, tutorName) {
-    const reason = prompt(`Enter rejection reason for ${tutorName}'s payout request (optional):`, "Account details pending verification");
+    const reason = window.showCustomPrompt
+        ? await window.showCustomPrompt(`Enter rejection reason for ${tutorName}'s payout request (optional):`, "Account details pending verification", "Reject Payout")
+        : prompt(`Enter rejection reason for ${tutorName}'s payout request (optional):`, "Account details pending verification");
     if (reason === null) return;
 
     try {
@@ -3481,7 +3489,10 @@ window.loadAdminCertificateRequests = async function() {
 };
 
 window.approveAdminCertificateRequest = async function(reqId) {
-    if (!confirm("Are you sure you want to approve this certificate request and issue an official PDF certificate?")) return;
+    const confirmed = window.showCustomConfirm
+        ? await window.showCustomConfirm("Are you sure you want to approve this certificate request and issue an official PDF certificate?", "Approve Certificate", "Approve", "Cancel")
+        : confirm("Are you sure you want to approve this certificate request and issue an official PDF certificate?");
+    if (!confirmed) return;
     try {
         const res = await fetch(`/api/admin/certificate-requests/${reqId}/approve`, {
             method: "POST",
@@ -3502,7 +3513,9 @@ window.approveAdminCertificateRequest = async function(reqId) {
 };
 
 window.rejectAdminCertificateRequest = async function(reqId) {
-    const remarks = prompt("Please enter rejection feedback for the tutor:");
+    const remarks = window.showCustomPrompt
+        ? await window.showCustomPrompt("Please enter rejection feedback for the tutor:", "Pending revisions needed", "Reject Certificate")
+        : prompt("Please enter rejection feedback for the tutor:");
     if (remarks === null) return;
 
     try {
@@ -3630,7 +3643,10 @@ window.submitAddSubjectForm = async function(event) {
 };
 
 window.deleteSubjectAction = async function(id) {
-    if (!confirm("Are you sure you want to remove this subject category?")) return;
+    const confirmed = window.showCustomConfirm
+        ? await window.showCustomConfirm("Are you sure you want to remove this subject category?", "Remove Subject", "Remove", "Cancel")
+        : confirm("Are you sure you want to remove this subject category?");
+    if (!confirmed) return;
     try {
         const res = await fetch(`/api/admin/subjects/${id}`, { method: "DELETE" });
         const data = await res.json();
@@ -4727,7 +4743,9 @@ window.initBlogTipTapEditor = function() {
                 case "orderedList": editor.chain().focus().toggleOrderedList().run(); break;
                 case "link": {
                     const prevUrl = editor.getAttributes("link").href || "";
-                    const url = prompt("Enter link URL:", prevUrl);
+                    const url = window.showCustomPrompt
+                        ? await window.showCustomPrompt("Enter link URL:", prevUrl, "Insert Link")
+                        : prompt("Enter link URL:", prevUrl);
                     if (url === null) return;
                     if (url === "") {
                         editor.chain().focus().extendMarkRange("link").unsetLink().run();
@@ -4737,7 +4755,9 @@ window.initBlogTipTapEditor = function() {
                     break;
                 }
                 case "image": {
-                    const url = prompt("Enter image URL:");
+                    const url = window.showCustomPrompt
+                        ? await window.showCustomPrompt("Enter image URL:", "", "Insert Image")
+                        : prompt("Enter image URL:");
                     if (url) editor.chain().focus().setImage({ src: url }).run();
                     break;
                 }
@@ -5128,7 +5148,10 @@ window.toggleAdminBlogPublish = async function(id) {
 };
 
 window.deleteAdminBlog = async function(id) {
-    if (!confirm("Are you sure you want to permanently delete this blog article?")) return;
+    const confirmed = window.showCustomConfirm
+        ? await window.showCustomConfirm("Are you sure you want to permanently delete this blog article?", "Delete Blog", "Delete", "Cancel")
+        : confirm("Are you sure you want to permanently delete this blog article?");
+    if (!confirmed) return;
 
     try {
         const res = await fetch(`/api/admin/blogs/${id}`, {

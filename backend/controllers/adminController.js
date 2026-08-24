@@ -124,10 +124,12 @@ exports.verifyTutor = async (req, res) => {
     await tutorProfile.save();
 
     if (tutorProfile.user) {
+      const tutorUserId = tutorProfile.user._id || tutorProfile.user;
+      await User.findByIdAndUpdate(tutorUserId, { tutorStatus: "approved", isVerified: true });
       await createNotification({
-        userId: tutorProfile.user._id,
-        title: "Profile Verified! ✅",
-        message: "Congratulations! Your tutor profile & KYC documents have been approved by Admin.",
+        userId: tutorUserId,
+        title: "Tutor Application Approved",
+        message: "Congratulations! Your tutor application has been approved. You can now access your Tutor Dashboard and tutor features.",
         type: "system",
         app: req.app,
       });
@@ -351,9 +353,21 @@ exports.createAnnouncement = async (req, res) => {
       targetRole: targetRole || "all",
     });
 
+    const io = req.app.get("io");
+    if (io) {
+      const target = (targetRole || "all").toLowerCase();
+      if (target === "all") {
+        io.emit("receiveAnnouncement", announcement);
+      } else {
+        io.to(target).emit("receiveAnnouncement", announcement);
+      }
+    }
+
+    await logUserActivity(req.user.id, `Admin created broadcast announcement: "${title}"`, req.ip);
+
     return res.status(201).json({
       success: true,
-      message: "Announcement broadcasted successfully to all users!",
+      message: "Announcement broadcasted successfully to Announcement section!",
       announcement,
     });
   } catch (err) {
@@ -374,40 +388,7 @@ exports.getAnnouncements = async (req, res) => {
 };
 
 exports.sendBulkNotification = async (req, res) => {
-  try {
-    const { title, message, targetRole } = req.body;
-
-    if (!title || !message) {
-      return res.status(400).json({ success: false, message: "Title and message are required." });
-    }
-
-    let filter = {};
-    if (targetRole && targetRole !== "all") {
-      filter.role = targetRole;
-    }
-
-    const targetUsers = await User.find(filter).select("_id");
-    for (const u of targetUsers) {
-      await createNotification({
-        userId: u._id,
-        title: `📢 ${title}`,
-        message,
-        type: "system",
-        app: req.app,
-      });
-    }
-
-    await logUserActivity(req.user.id, `Admin broadcasted notification to ${targetUsers.length} ${targetRole ? targetRole.toUpperCase() + 's' : 'users'}`, req.ip);
-
-    return res.status(200).json({
-      success: true,
-      message: `Bulk notification delivered to ${targetUsers.length} users successfully!`,
-      count: targetUsers.length,
-    });
-  } catch (err) {
-    console.error("Send Bulk Notification Error:", err);
-    return res.status(500).json({ success: false, message: "Server Error" });
-  }
+  return exports.createAnnouncement(req, res);
 };
 
 const formatCleanLogAction = (log) => {
@@ -566,6 +547,48 @@ exports.getPendingDocuments = async (req, res) => {
   }
 };
 
+exports.getTutorApplications = async (req, res) => {
+  try {
+    const { status } = req.query; // 'pending' | 'approved' | 'rejected' | 'all'
+    let query = {};
+    if (status && status !== "all") {
+      const formattedStatus = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+      query.$or = [
+        { registrationStatus: formattedStatus },
+        { verificationStatus: formattedStatus }
+      ];
+    }
+
+    const tutors = await TutorProfile.find(query)
+      .populate("user", "name email phone role tutorStatus")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: tutors.length,
+      tutors: tutors,
+      pendingDocuments: tutors,
+    });
+  } catch (err) {
+    console.error("Get Tutor Applications Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.getTutorApplicationDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tutorProfile = await TutorProfile.findById(id).populate("user", "name email phone role tutorStatus");
+    if (!tutorProfile) {
+      return res.status(404).json({ success: false, message: "Tutor application not found." });
+    }
+    return res.status(200).json({ success: true, tutorProfile });
+  } catch (err) {
+    console.error("Get Tutor Application Details Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 exports.verifyTutorDocument = async (req, res) => {
   try {
     const { tutorProfileId } = req.params;
@@ -592,13 +615,18 @@ exports.verifyTutorDocument = async (req, res) => {
 
     if (profile.user) {
       const tutorUserId = profile.user._id || profile.user;
-      await User.findByIdAndUpdate(tutorUserId, { isVerified: true });
+      const newTutorStatus = normStatus === "Approved" ? "approved" : "rejected";
+      await User.findByIdAndUpdate(tutorUserId, { tutorStatus: newTutorStatus, isVerified: normStatus === "Approved" });
+
+      const notifTitle = normStatus === "Approved" ? "Tutor Application Approved" : "Tutor Application Rejected";
+      const notifMessage = normStatus === "Approved"
+        ? "Congratulations! Your tutor application has been approved. You can now access your Tutor Dashboard and tutor features."
+        : "Your tutor application has been rejected by the admin. Please review the application requirements and try again if applicable.";
+
       await createNotification({
         userId: tutorUserId,
-        title: normStatus === "Approved" ? "KYC Approved & Profile Verified! ✅" : "KYC Document Update 📄",
-        message: normStatus === "Approved" 
-          ? "Congratulations! Your background verification & KYC documents have been approved by Admin."
-          : "Your document verification status has been updated.",
+        title: notifTitle,
+        message: notifMessage,
         type: "system",
         app: req.app,
       });
@@ -1808,4 +1836,154 @@ exports.rejectCertificateRequest = async (req, res) => {
   if (!req.body) req.body = {};
   req.body.status = "Rejected";
   return exports.updateCertificateRequestStatus(req, res);
+};
+
+exports.toggleBookingChatUnlock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await BookingRequest.findById(id);
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking request not found." });
+    }
+
+    booking.isChatUnlocked = !booking.isChatUnlocked;
+    await booking.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Chat ${booking.isChatUnlocked ? "UNLOCKED" : "LOCKED"} by Admin successfully!`,
+      isChatUnlocked: booking.isChatUnlocked,
+      booking,
+    });
+  } catch (err) {
+    console.error("Toggle Booking Chat Unlock Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.toggleUserChatUnlock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User account not found." });
+    }
+
+    user.chatUnlockedByAdmin = !user.chatUnlockedByAdmin;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Chat ${user.chatUnlockedByAdmin ? "UNLOCKED" : "LOCKED"} by Admin for ${user.name}!`,
+      chatUnlockedByAdmin: user.chatUnlockedByAdmin,
+      user,
+    });
+  } catch (err) {
+    console.error("Toggle User Chat Unlock Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.approveBookingRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await BookingRequest.findById(id)
+      .populate("student", "name email phone")
+      .populate("tutor", "name email phone")
+      .populate("tutorProfile", "primarySubject subjects");
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Demo class request not found." });
+    }
+
+    // Set status to Pending Tutor Acceptance so tutor receives the request
+    booking.status = "Pending Tutor Acceptance";
+    await booking.save();
+
+    const studentName = booking.student ? (booking.student.name || booking.student.email) : "A student";
+    const subjectName = (booking.tutorProfile && booking.tutorProfile.primarySubject) || "Tuition";
+
+    // Deliver user-specific notification ONLY to Tutor (NOT final confirmation to student yet)
+    if (booking.tutor) {
+      await createNotification({
+        userId: booking.tutor._id,
+        title: "New Demo Class Request 🎓",
+        message: `You have received a demo class request from ${studentName} for ${subjectName}. Please accept or reject the request.`,
+        type: "booking",
+        app: req.app,
+      });
+    }
+
+    await logUserActivity(req.user.id, `Admin approved demo class request (${booking._id}) -> Sent to Tutor for acceptance`, req.ip);
+
+    return res.status(200).json({
+      success: true,
+      message: "Demo class request approved by Admin! Sent to Tutor for acceptance.",
+      booking,
+    });
+  } catch (err) {
+    console.error("Approve Booking Request Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.rejectBookingRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await BookingRequest.findById(id)
+      .populate("student", "name email phone");
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Demo class request not found." });
+    }
+
+    booking.status = "Rejected by Admin";
+    await booking.save();
+
+    // Deliver user-specific notification to Student
+    if (booking.student) {
+      await createNotification({
+        userId: booking.student._id,
+        title: "Demo Class Request Update",
+        message: "Your demo class request has been rejected by Admin.",
+        type: "booking",
+        app: req.app,
+      });
+    }
+
+    await logUserActivity(req.user.id, `Admin rejected demo class request (${booking._id})`, req.ip);
+
+    return res.status(200).json({
+      success: true,
+      message: "Demo class request REJECTED by Admin successfully!",
+      booking,
+    });
+  } catch (err) {
+    console.error("Reject Booking Request Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+exports.deleteBookingRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await BookingRequest.findById(id);
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking request not found." });
+    }
+
+    await BookingRequest.findByIdAndDelete(id);
+    await logUserActivity(req.user.id, `Admin deleted booking request (${id})`, req.ip);
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking request deleted successfully!",
+    });
+  } catch (err) {
+    console.error("Delete Booking Request Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
 };

@@ -1,0 +1,272 @@
+/* Custom UI Modal Popup Styles */
+.custom-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-popup-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.custom-popup-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  transform: scale(0.92) translateY(12px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+.custom-popup-overlay.active .custom-popup-card {
+  transform: scale(1) translateY(0);
+}
+
+/* Header & Banner Styles */
+.custom-popup-header {
+  padding: 24px 24px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.custom-popup-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.custom-popup-title-group {
+  flex: 1;
+}
+
+.custom-popup-title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.custom-popup-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.custom-popup-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: color 0.2s, background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.custom-popup-close-btn:hover {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+
+/* Body Content */
+.custom-popup-body {
+  padding: 0 24px 20px;
+  color: #334155;
+  font-size: 14.5px;
+  line-height: 1.6;
+  max-height: 60vh;
+  overflow-y: auto;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.custom-popup-body-formatted {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1e293b;
+}
+
+.custom-popup-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #cbd5e1;
+  font-size: 14.5px;
+  font-family: inherit;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-top: 12px;
+  box-sizing: border-box;
+}
+
+.custom-popup-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+}
+
+/* Footer / Actions */
+.custom-popup-footer {
+  padding: 16px 24px 20px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.custom-popup-btn {
+  padding: 10px 22px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  outline: none;
+}
+
+.custom-popup-btn-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+}
+
+.custom-popup-btn-primary:hover {
+  background: linear-gradient(135deg, #4338ca 0%, #2563eb 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+}
+
+.custom-popup-btn-primary:active {
+  transform: translateY(0);
+}
+
+.custom-popup-btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.custom-popup-btn-secondary:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.custom-popup-btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.custom-popup-btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Status Variations */
+/* Success */
+.custom-popup-card.type-success .custom-popup-icon-wrapper {
+  background: #dcfce7;
+  color: #15803d;
+}
+.custom-popup-card.type-success .custom-popup-btn-primary {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+}
+
+/* Error */
+.custom-popup-card.type-error .custom-popup-icon-wrapper {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.custom-popup-card.type-error .custom-popup-btn-primary {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+}
+
+/* Warning */
+.custom-popup-card.type-warning .custom-popup-icon-wrapper {
+  background: #fef3c7;
+  color: #b45309;
+}
+.custom-popup-card.type-warning .custom-popup-btn-primary {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+}
+
+/* AI Solution / Report */
+.custom-popup-card.type-ai .custom-popup-icon-wrapper {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+.custom-popup-card.type-ai .custom-popup-btn-primary {
+  background: linear-gradient(135deg, #9333ea 0%, #6b21a8 100%);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.25);
+}
+
+/* Info */
+.custom-popup-card.type-info .custom-popup-icon-wrapper {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.custom-popup-card.type-info .custom-popup-btn-primary {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+}
+
+/* Confirm */
+.custom-popup-card.type-confirm .custom-popup-icon-wrapper {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* Prompt */
+.custom-popup-card.type-prompt .custom-popup-icon-wrapper {
+  background: #e0e7ff;
+  color: #4338ca;
+}

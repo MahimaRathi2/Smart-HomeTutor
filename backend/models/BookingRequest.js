@@ -24,8 +24,18 @@ const bookingRequestSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["Pending", "Accepted", "Rejected"],
-      default: "Pending",
+      enum: [
+        "Pending",
+        "Pending Admin Approval",
+        "Pending Tutor Acceptance",
+        "Approved",
+        "Accepted",
+        "Confirmed",
+        "Rejected",
+        "Rejected by Admin",
+        "Rejected by Tutor",
+      ],
+      default: "Pending Admin Approval",
     },
 
     message: {
@@ -58,6 +68,11 @@ const bookingRequestSchema = new mongoose.Schema(
       type: String,
       enum: ["Scheduled", "En Route", "Arrived", "Completed", "N/A"],
       default: "N/A",
+    },
+
+    isChatUnlocked: {
+      type: Boolean,
+      default: false,
     },
   },
   {

@@ -11,6 +11,8 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [isChatLocked, setIsChatLocked] = useState(false);
+  const [chatLockMessage, setChatLockMessage] = useState('');
 
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
@@ -25,7 +27,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
         const senderObj = typeof msg.sender === 'object' ? msg.sender : { _id: msg.sender, name: 'Student' };
         const senderId = senderObj._id;
 
-        if (activeStudentId && senderId === activeStudentId) {
+        if (activeStudentId && senderId === activeStudentId && !isChatLocked) {
           setMessages((prev) => [...prev, msg]);
           fetch(`/api/chat/seen/${senderId}`, { method: 'PATCH' }).catch(() => {});
         } else {
@@ -34,7 +36,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
       });
 
       socketRef.current.on('userTyping', ({ senderId }) => {
-        if (activeStudentId && senderId === activeStudentId) {
+        if (activeStudentId && senderId === activeStudentId && !isChatLocked) {
           setIsTyping(true);
         }
       });
@@ -49,7 +51,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
-  }, [activeStudentId]);
+  }, [activeStudentId, isChatLocked]);
 
   useEffect(() => {
     loadConversations();
@@ -76,7 +78,9 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
               if (!exists) {
                 list.push({
                   user: r.student,
-                  lastMessage: r.message || 'Demo Class Request',
+                  chatLocked: true,
+                  lockMessage: 'Chat will be available after the tutor completes the payment.',
+                  lastMessage: ' Chat Locked - Payment Required',
                   lastMessageTime: r.createdAt,
                   unreadCount: 0
                 });
@@ -96,17 +100,36 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
     }
   };
 
-  const handleSelectStudent = async (studentId, name) => {
+  const handleSelectStudent = async (studentId, name, convObj = null) => {
     setActiveStudentId(studentId);
     setActiveStudentName(name);
     setLoadingMessages(true);
 
+    if (convObj && convObj.chatLocked) {
+      setIsChatLocked(true);
+      setChatLockMessage(convObj.lockMessage || 'Chat will be available after the tutor completes the payment.');
+      setMessages([]);
+      setLoadingMessages(false);
+      return;
+    }
+
     try {
-      await fetch(`/api/chat/seen/${studentId}`, { method: 'PATCH' });
       const res = await fetch(`/api/chat/messages/${studentId}`);
       const data = await res.json();
+
+      if (res.status === 403 || data.chatLocked) {
+        setIsChatLocked(true);
+        setChatLockMessage(data.message || 'Chat will be available after the tutor completes the payment.');
+        setMessages([]);
+        return;
+      }
+
+      setIsChatLocked(false);
+      setChatLockMessage('');
+
       if (data.success && data.messages) {
         setMessages(data.messages);
+        await fetch(`/api/chat/seen/${studentId}`, { method: 'PATCH' }).catch(() => {});
       } else {
         setMessages([]);
       }
@@ -119,7 +142,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
   };
 
   const handleSendMessage = async () => {
-    if ((!messageInput.trim() && !pendingFile) || !activeStudentId) return;
+    if ((!messageInput.trim() && !pendingFile) || !activeStudentId || isChatLocked) return;
 
     const contentToSend = messageInput.trim();
     const fileToSend = pendingFile || {};
@@ -144,6 +167,13 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
         })
       });
       const data = await res.json();
+
+      if (res.status === 403 || data.chatLocked) {
+        setIsChatLocked(true);
+        setChatLockMessage(data.message || 'Chat will be available after the tutor completes the payment.');
+        return;
+      }
+
       if (data.success && data.data) {
         setMessages((prev) => [...prev, data.data]);
         loadConversations();
@@ -154,6 +184,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
   };
 
   const handleFileUpload = async (e) => {
+    if (isChatLocked) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -193,7 +224,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
 
   const handleTyping = (e) => {
     setMessageInput(e.target.value);
-    if (!activeStudentId || !socketRef.current) return;
+    if (!activeStudentId || !socketRef.current || isChatLocked) return;
 
     socketRef.current.emit('typing', {
       recipientId: activeStudentId,
@@ -261,12 +292,13 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
                   const name = student.name || student.email || 'Student';
                   const initials = name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
                   const isActive = activeStudentId === student._id;
+                  const locked = Boolean(c.chatLocked);
 
                   return (
                     <div
                       key={student._id}
                       className={`conversation ${isActive ? 'active' : ''}`}
-                      onClick={() => handleSelectStudent(student._id, name)}
+                      onClick={() => handleSelectStudent(student._id, name, c)}
                     >
                       <div className="conversation-avatar">{initials}</div>
                       <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -274,14 +306,18 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
                           <strong style={{ fontSize: '14px', color: '#0f2a4a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {name}
                           </strong>
-                          {c.unreadCount > 0 && (
+                          {locked ? (
+                            <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10.5px', fontWeight: '800', padding: '2px 7px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <i className="fa-solid fa-lock"></i> Locked
+                            </span>
+                          ) : c.unreadCount > 0 ? (
                             <span style={{ background: '#dc2626', color: '#ffffff', fontSize: '10.5px', fontWeight: '800', padding: '2px 7px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                               <i className="fa-solid fa-circle" style={{ fontSize: '6px' }}></i> {c.unreadCount}
                             </span>
-                          )}
+                          ) : null}
                         </div>
-                        <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {c.lastMessage || 'Tap to chat...'}
+                        <p style={{ fontSize: '12px', color: locked ? '#b45309' : '#64748b', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: locked ? 600 : 400 }}>
+                          {locked ? ' Chat Locked' : (c.lastMessage || 'Tap to chat...')}
                         </p>
                       </div>
                     </div>
@@ -293,7 +329,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
 
           {/* MAIN CHAT WINDOW */}
           <div className="chat-main">
-            <div className="chat-header">
+            <div className="chat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '16px', color: '#0f2a4a' }}>
                   {activeStudentName || 'Select a Student'}
@@ -301,16 +337,27 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
                 <small style={{ color: '#64748b', fontSize: '12px' }}>
                   {activeStudentId ? 'Active Student' : 'Click any student on the left to start messaging'}
                 </small>
-                {isTyping && (
+                {isTyping && !isChatLocked && (
                   <small style={{ color: '#0284c7', fontWeight: '600', fontSize: '12px', marginLeft: '8px' }}>
                     <i className="fa-solid fa-pen-nib fa-bounce"></i> Student is typing...
                   </small>
                 )}
               </div>
               {activeStudentId && (
-                <button className="dash-btn dash-btn-primary" onClick={triggerVideoCall}>
-                  <i className="fa-solid fa-video"></i> Video Call
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {isChatLocked ? (
+                    <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <i className="fa-solid fa-lock"></i>  Chat Locked
+                    </span>
+                  ) : (
+                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <i className="fa-solid fa-comments"></i> 💬 Chat Unlocked
+                    </span>
+                  )}
+                  <button className="dash-btn dash-btn-primary" onClick={triggerVideoCall}>
+                    <i className="fa-solid fa-video"></i> Video Call
+                  </button>
+                </div>
               )}
             </div>
 
@@ -319,6 +366,14 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
                 <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '100px', fontSize: '14px' }}>
                   <i className="fa-solid fa-comments" style={{ fontSize: '40px', marginBottom: '12px', opacity: 0.5 }}></i>
                   <p>Select a student from the conversation list on the left to view messages.</p>
+                </div>
+              ) : isChatLocked ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', margin: 'auto', maxWidth: '420px', background: '#fffbebf5', border: '1px solid #fef3c7', borderRadius: '16px', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)' }}>
+                  <i className="fa-solid fa-lock" style={{ fontSize: '48px', color: '#f59e0b', marginBottom: '16px', display: 'block' }}></i>
+                  <h3 style={{ margin: '0 0 8px 0', color: '#92400e', fontSize: '18px', fontWeight: 800 }}> Chat Locked</h3>
+                  <p style={{ margin: 0, color: '#b45309', fontSize: '13.5px', lineHeight: 1.5, fontWeight: 500 }}>
+                    {chatLockMessage || 'Chat will be available after the tutor completes the payment.'}
+                  </p>
                 </div>
               ) : loadingMessages ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>
@@ -367,7 +422,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
             </div>
 
             {/* PENDING FILE PREVIEW BANNER */}
-            {pendingFile && (
+            {pendingFile && !isChatLocked && (
               <div style={{ padding: '8px 16px', background: '#e0f2fe', borderTop: '1px solid #bae6fd', fontSize: '12px', display: 'flex', justifyContent: 'space-between', color: '#0369a1' }}>
                 <span>📎 Ready to send: <strong>{pendingFile.fileName}</strong></span>
                 <button onClick={() => setPendingFile(null)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>✕ Cancel</button>
@@ -375,19 +430,19 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
             )}
 
             <div className="chat-footer">
-              <label className="dash-btn dash-btn-outline" style={{ padding: '10px 14px', cursor: activeStudentId ? 'pointer' : 'not-allowed', opacity: activeStudentId ? 1 : 0.5 }}>
+              <label className="dash-btn dash-btn-outline" style={{ padding: '10px 14px', cursor: (activeStudentId && !isChatLocked) ? 'pointer' : 'not-allowed', opacity: (activeStudentId && !isChatLocked) ? 1 : 0.5 }}>
                 <i className="fa-solid fa-paperclip"></i>
-                <input type="file" accept="image/*,.pdf,.doc,.docx" style={{ display: 'none' }} disabled={!activeStudentId || uploadingFile} onChange={handleFileUpload} />
+                <input type="file" accept="image/*,.pdf,.doc,.docx" style={{ display: 'none' }} disabled={!activeStudentId || isChatLocked || uploadingFile} onChange={handleFileUpload} />
               </label>
               <input
                 type="text"
-                placeholder="Type message..."
+                placeholder={isChatLocked ? '🔒 Chat will be available after the tutor completes the payment.' : 'Type message...'}
                 value={messageInput}
-                disabled={!activeStudentId}
+                disabled={!activeStudentId || isChatLocked}
                 onChange={handleTyping}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               />
-              <button className="dash-btn dash-btn-primary" disabled={!activeStudentId} onClick={handleSendMessage}>
+              <button className="dash-btn dash-btn-primary" disabled={!activeStudentId || isChatLocked} onClick={handleSendMessage}>
                 <i className="fa-solid fa-paper-plane"></i>
               </button>
             </div>

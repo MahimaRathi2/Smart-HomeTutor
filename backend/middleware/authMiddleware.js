@@ -83,3 +83,51 @@ exports.authorizeRole = (...roles) => {
     next();
   };
 };
+
+exports.requireApprovedTutor = async (req, res, next) => {
+  if (!req.user) {
+    if (req.xhr || (req.headers.accept && req.headers.accept.includes("json")) || req.headers["content-type"]?.includes("json")) {
+      return res.status(401).json({ success: false, message: "Please log in to continue." });
+    }
+    return res.redirect("/login?error=" + encodeURIComponent("Please log in to continue."));
+  }
+
+  if (req.user.role === "tutor") {
+    try {
+      const User = require("../models/User");
+      const user = await User.findById(req.user.id);
+      
+      // Fallback synchronization if user.tutorStatus is not set
+      if (user && user.tutorStatus !== "approved") {
+        const TutorProfile = require("../models/TutorProfile");
+        const profile = await TutorProfile.findOne({ user: user._id });
+        if (profile) {
+          if (profile.registrationStatus === "Approved") {
+            user.tutorStatus = "approved";
+            await user.save();
+          } else if (profile.registrationStatus === "Pending") {
+            user.tutorStatus = "pending";
+            await user.save();
+          } else if (profile.registrationStatus === "Rejected") {
+            user.tutorStatus = "rejected";
+            await user.save();
+          }
+        }
+      }
+
+      if (!user || user.tutorStatus !== "approved") {
+        return res.status(403).json({
+          success: false,
+          message: "Tutor approval is required to access this feature.",
+          tutorStatus: user ? user.tutorStatus : "not_applied",
+        });
+      }
+    } catch (err) {
+      console.error("requireApprovedTutor Middleware Error:", err);
+      return res.status(500).json({ success: false, message: "Server error verifying tutor approval status." });
+    }
+  }
+
+  next();
+};
+

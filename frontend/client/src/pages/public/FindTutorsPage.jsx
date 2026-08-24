@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import { SubmitRequestModal } from '../../components/common/SubmitRequestModal';
 
 export const FindTutorsPage = () => {
+  const navigate = useNavigate();
   const [tutors, setTutors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userGeoLocation, setUserGeoLocation] = useState(null);
@@ -172,11 +174,19 @@ export const FindTutorsPage = () => {
   };
 
   const handleBookDemo = async (tutorProfileId, tutorName) => {
-    const message = prompt(
-      `Request a free trial / demo class with ${tutorName}.\nEnter your message/preferred timing:`,
-      'Hi, I would like to schedule a trial class.'
-    );
-    if (message === null) return;
+    const message = window.showCustomPrompt
+      ? await window.showCustomPrompt(
+          `Request a free trial / demo class with ${tutorName}.\nEnter your message/preferred timing:`,
+          'Hi, I would like to schedule a trial class.',
+          'Book Demo Class',
+          'Submit Request',
+          'Cancel'
+        )
+      : prompt(
+          `Request a free trial / demo class with ${tutorName}.\nEnter your message/preferred timing:`,
+          'Hi, I would like to schedule a trial class.'
+        );
+    if (message === null || message.trim() === '') return;
 
     try {
       const res = await fetch('/api/student/book', {
@@ -186,13 +196,33 @@ export const FindTutorsPage = () => {
       });
       const data = await res.json();
       if (data.success) {
-        alert('🎉 ' + data.message);
+        if (window.showCustomAlert) {
+          window.showCustomAlert('🎉 ' + data.message, 'Success', 'success');
+        } else {
+          alert('🎉 ' + data.message);
+        }
       } else {
-        alert('⚠️ ' + (data.message || 'Failed to submit request. Ensure you are logged in as a student.'));
+        const errorMsg = data.message || 'Authentication required. Please log in.';
+        if (window.showCustomAlert) {
+          window.showCustomAlert(errorMsg, 'Attention Needed', 'warning', () => {
+            navigate('/login');
+          });
+        } else {
+          alert('⚠️ ' + errorMsg);
+          navigate('/login');
+        }
       }
     } catch (err) {
       console.error(err);
-      alert('❌ Error sending booking request. Please check if you are logged in.');
+      const errorMsg = 'Error sending booking request. Please check if you are logged in.';
+      if (window.showCustomAlert) {
+        window.showCustomAlert(errorMsg, 'Attention Needed', 'error', () => {
+          navigate('/login');
+        });
+      } else {
+        alert('❌ ' + errorMsg);
+        navigate('/login');
+      }
     }
   };
 

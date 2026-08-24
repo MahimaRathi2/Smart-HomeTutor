@@ -49,22 +49,26 @@ export const BroadcastAnnouncementListener = () => {
         top: '20px',
         right: '20px',
         zIndex: 9999,
-        maxWidth: '420px',
+        maxWidth: '440px',
         width: 'calc(100% - 40px)',
+        maxHeight: 'calc(100vh - 40px)',
+        display: 'flex',
+        flexDirection: 'column',
         background: '#ffffff',
         border: '1px solid #fed7aa',
         borderLeft: '5px solid #f59e0b',
         borderRadius: '14px',
         padding: '16px 20px',
-        boxShadow: '0 12px 24px -4px rgba(15, 42, 74, 0.15)',
+        boxShadow: '0 12px 28px -4px rgba(15, 42, 74, 0.2)',
         animation: 'slideInDown 0.3s ease-out forwards',
         color: '#0f2a4a',
+        boxSizing: 'border-box',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <i className="fa-solid fa-bullhorn" style={{ color: '#d97706', fontSize: '16px' }}></i>
-          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f2a4a' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', gap: '8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+          <i className="fa-solid fa-bullhorn" style={{ color: '#d97706', fontSize: '16px', flexShrink: 0 }}></i>
+          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f2a4a', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
             {announcement.title}
           </h4>
         </div>
@@ -73,11 +77,12 @@ export const BroadcastAnnouncementListener = () => {
           style={{
             background: 'none',
             border: 'none',
-            fontSize: '18px',
+            fontSize: '20px',
             color: '#94a3b8',
             cursor: 'pointer',
             padding: '0 4px',
             lineHeight: 1,
+            flexShrink: 0,
           }}
           title="Dismiss Announcement"
         >
@@ -85,11 +90,25 @@ export const BroadcastAnnouncementListener = () => {
         </button>
       </div>
 
-      <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#334155', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+      <div
+        className="announcement-content-body"
+        style={{
+          height: 'auto',
+          maxHeight: 'none',
+          overflow: 'visible',
+          overflowWrap: 'anywhere',
+          wordBreak: 'break-word',
+          whiteSpace: 'pre-wrap',
+          fontSize: '13.5px',
+          color: '#334155',
+          lineHeight: '1.6',
+          margin: '0 0 12px 0',
+        }}
+      >
         {announcement.message}
-      </p>
+      </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <span
           style={{
             fontSize: '10px',
@@ -97,7 +116,7 @@ export const BroadcastAnnouncementListener = () => {
             textTransform: 'uppercase',
             background: '#fef3c7',
             color: '#b45309',
-            padding: '2px 8px',
+            padding: '3px 8px',
             borderRadius: '12px',
           }}
         >
@@ -111,8 +130,8 @@ export const BroadcastAnnouncementListener = () => {
             background: '#f1f5f9',
             border: 'none',
             borderRadius: '6px',
-            padding: '3px 8px',
-            fontSize: '11px',
+            padding: '4px 12px',
+            fontSize: '12px',
             fontWeight: '700',
             color: '#475569',
             cursor: 'pointer',

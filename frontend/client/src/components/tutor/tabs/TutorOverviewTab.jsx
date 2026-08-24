@@ -128,20 +128,19 @@ export const TutorOverviewTab = ({
               ))
             )}
           </div>
-
-          {/* PENDING STUDENT BOOKING REQUESTS */}
+          {/* ASSIGNED APPROVED DEMO CLASSES */}
           <div className="dash-card" style={{ marginTop: '20px' }}>
             <div className="dash-card-header">
-              <h3><i className="fa-solid fa-envelope-open-text"></i> Pending Student Booking Requests</h3>
+              <h3><i className="fa-solid fa-calendar-check" style={{ color: '#16a34a' }}></i> Assigned Demo Classes (Admin Approved)</h3>
             </div>
 
-            {pendingRequests.length === 0 ? (
-              <div style={{ textalign: 'center', padding: '20px', color: '#64748b', fontSize: '13px' }}>
-                No pending booking requests at the moment.
+            {pendingRequests.filter((r) => r.status === 'Approved' || r.status === 'Accepted').length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '13px' }}>
+                No approved demo class sessions assigned at the moment.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {pendingRequests.map((req) => (
+                {pendingRequests.filter((r) => r.status === 'Approved' || r.status === 'Accepted').map((req) => (
                   <div
                     key={req._id}
                     style={{
@@ -156,27 +155,16 @@ export const TutorOverviewTab = ({
                   >
                     <div>
                       <h4 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: '#0f172a' }}>
-                        {req.student?.name || req.studentName || 'Student Inquirer'} ({req.grade || req.class || 'Student'})
+                        {req.student?.name || req.studentName || 'Student'} ({req.grade || req.class || 'Student'})
                       </h4>
                       <p style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                        Subject: {req.subject || 'General'} &bull; Preferred Time: {req.preferredTime || 'Flexible'}
+                        Subject: {req.subject || 'General'} &bull; Status: {req.status}
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        className="dash-btn dash-btn-primary"
-                        style={{ padding: '6px 12px', fontSize: '12px' }}
-                        onClick={() => onAcceptRequest(req._id)}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        className="dash-btn dash-btn-outline"
-                        style={{ padding: '6px 12px', fontSize: '12px' }}
-                        onClick={() => onRejectRequest(req._id)}
-                      >
-                        Decline
-                      </button>
+                    <div>
+                      <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '700', background: '#dcfce7', padding: '4px 10px', borderRadius: '12px', border: '1px solid #86efac' }}>
+                        <i className="fa-solid fa-circle-check"></i> Approved by Admin
+                      </span>
                     </div>
                   </div>
                 ))}

@@ -241,16 +241,30 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
                             lineHeight: '1.3',
                           }}
                         >
-                          {item.title}
+                          {item.title ? item.title.replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() : ''}
                         </h4>
                         <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap' }}>
                           {formattedDate}
                         </span>
                       </div>
 
-                      <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#334155', lineHeight: '1.5' }}>
+                      <div
+                        className="announcement-content-body"
+                        style={{
+                          height: 'auto',
+                          maxHeight: 'none',
+                          overflow: 'visible',
+                          overflowWrap: 'anywhere',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'pre-wrap',
+                          fontSize: '13px',
+                          color: '#334155',
+                          lineHeight: '1.5',
+                          margin: '0 0 10px 0',
+                        }}
+                      >
                         {item.message}
-                      </p>
+                      </div>
 
                       {/* ACTION BUTTON & ITEM ACTIONS */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>

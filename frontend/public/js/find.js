@@ -171,9 +171,17 @@ async function fetchAndRenderTutors(query) {
 }
 
 // Global modal booking helper
-window.openBookingModal = function(tutorProfileId, tutorName) {
-    const message = prompt(`Request a free trial / demo class with ${tutorName}.\nEnter your message/preferred timing:`, "Hi, I would like to schedule a trial class.");
-    if (message === null) return;
+window.openBookingModal = async function(tutorProfileId, tutorName) {
+    const message = window.showCustomPrompt
+        ? await window.showCustomPrompt(
+            `Request a free trial / demo class with ${tutorName}.\nEnter your message/preferred timing:`,
+            "Hi, I would like to schedule a trial class.",
+            "Book Demo Class",
+            "Submit Request",
+            "Cancel"
+          )
+        : prompt(`Request a free trial / demo class with ${tutorName}.\nEnter your message/preferred timing:`, "Hi, I would like to schedule a trial class.");
+    if (message === null || message.trim() === '') return;
 
     fetch("/api/student/book", {
         method: "POST",
@@ -183,14 +191,34 @@ window.openBookingModal = function(tutorProfileId, tutorName) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert("🎉 " + data.message);
+            if (window.showCustomAlert) {
+                window.showCustomAlert("🎉 " + data.message, "Success", "success");
+            } else {
+                alert("🎉 " + data.message);
+            }
         } else {
-            alert("⚠️ " + (data.message || "Failed to submit request. Ensure you are logged in as a student."));
+            const errorMsg = data.message || "Authentication required. Please log in.";
+            if (window.showCustomAlert) {
+                window.showCustomAlert(errorMsg, "Attention Needed", "warning", function() {
+                    window.location.href = "/login";
+                });
+            } else {
+                alert("⚠️ " + errorMsg);
+                window.location.href = "/login";
+            }
         }
     })
     .catch(err => {
         console.error(err);
-        alert("❌ Error sending booking request. Please check if you are logged in.");
+        const errorMsg = "Error sending booking request. Please check if you are logged in.";
+        if (window.showCustomAlert) {
+            window.showCustomAlert(errorMsg, "Attention Needed", "error", function() {
+                window.location.href = "/login";
+            });
+        } else {
+            alert("❌ " + errorMsg);
+            window.location.href = "/login";
+        }
     });
 };
 

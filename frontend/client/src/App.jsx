@@ -23,11 +23,13 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { ParentDashboard } from './pages/dashboards/ParentDashboard';
 import { BroadcastAnnouncementListener } from './components/common/BroadcastAnnouncementListener';
 import { SocketCallListener } from './components/home/SocketCallListener';
+import { CustomPopup } from './components/common/CustomPopup';
 
 export const App = () => {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <CustomPopup />
         <BroadcastAnnouncementListener />
         <SocketCallListener />
         <Routes>

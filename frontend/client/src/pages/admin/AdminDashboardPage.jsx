@@ -12,14 +12,29 @@ import { AdminCatalogTab } from '../../components/admin/tabs/AdminCatalogTab';
 import { AdminDisputesTab } from '../../components/admin/tabs/AdminDisputesTab';
 import { AdminBlogsTab } from '../../components/admin/tabs/AdminBlogsTab';
 import { AdminNotificationsTab } from '../../components/admin/tabs/AdminNotificationsTab';
+import { AdminDemoRequestsTab } from '../../components/admin/tabs/AdminDemoRequestsTab';
 import { AnnouncementModal } from '../../components/admin/modals/AnnouncementModal';
 import { SecurityCenterModal } from '../../components/admin/modals/SecurityCenterModal';
 import { AddSubjectModal } from '../../components/admin/modals/AddSubjectModal';
 import { AdminBlogModal } from '../../components/admin/modals/AdminBlogModal';
 import { CreateScheduleModal } from '../../components/common/CreateScheduleModal';
+import { useDashboardTab } from '../../hooks/useDashboardTab';
+
+const ADMIN_VALID_TABS = [
+  'overview',
+  'demo-requests',
+  'notifications',
+  'users',
+  'tutor-verifications',
+  'certificates',
+  'finance',
+  'catalog',
+  'disputes',
+  'blogs',
+];
 
 export const AdminDashboardPage = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useDashboardTab('admin_activeTab', 'overview', ADMIN_VALID_TABS);
   const [loading, setLoading] = useState(true);
 
   // Dynamic MongoDB Data States
@@ -62,7 +77,7 @@ export const AdminDashboardPage = () => {
       ] = await Promise.all([
         adminApi.getStats().catch(() => ({})),
         adminApi.getAllUsers().catch(() => ({})),
-        adminApi.getPendingDocuments().catch(() => ({})),
+        adminApi.getTutorApplications('all').catch(() => ({})),
         adminApi.getActivityLogs().catch(() => ({})),
         adminApi.getCertificateRequests().catch(() => ({})),
         adminApi.getFinanceRevenue().catch(() => ({})),
@@ -73,7 +88,7 @@ export const AdminDashboardPage = () => {
 
       if (statsRes.success) setStats(statsRes.stats || statsRes);
       if (usersRes.success && usersRes.users) setUsers(usersRes.users);
-      if (docsRes.success && docsRes.pendingDocuments) setPendingDocs(docsRes.pendingDocuments);
+      if (docsRes.success && (docsRes.tutors || docsRes.pendingDocuments)) setPendingDocs(docsRes.tutors || docsRes.pendingDocuments);
       if (logsRes.success && logsRes.activityLogs) setActivityLogs(logsRes.activityLogs);
       if (certsRes.success && certsRes.certificateRequests) setCertificateRequests(certsRes.certificateRequests);
       if (financeRes.success && financeRes.finance) setFinance(financeRes.finance);
@@ -92,13 +107,15 @@ export const AdminDashboardPage = () => {
     try {
       const res = await adminApi.verifyDocument(id, status);
       if (res.success) {
-        setPendingDocs((prev) => prev.filter((d) => d._id !== id));
+        setPendingDocs((prev) =>
+          prev.map((d) => (d._id === id ? { ...d, registrationStatus: status, verificationStatus: status, verified: status === 'Approved' } : d))
+        );
         loadAllAdminData();
       } else {
-        alert(res.message || 'Failed to verify document.');
+        alert(res.message || 'Failed to update tutor application status.');
       }
     } catch (err) {
-      console.error('Verify Doc Error:', err);
+      console.error('Verify Application Error:', err);
     }
   };
 
@@ -116,7 +133,10 @@ export const AdminDashboardPage = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user account?')) return;
+    const confirmed = window.showCustomConfirm
+      ? await window.showCustomConfirm('Are you sure you want to delete this user account?', 'Delete User Account', 'Delete', 'Cancel')
+      : window.confirm('Are you sure you want to delete this user account?');
+    if (!confirmed) return;
     try {
       const res = await adminApi.deleteUser(userId);
       if (res.success) {
@@ -207,7 +227,10 @@ export const AdminDashboardPage = () => {
   };
 
   const handleDeleteSubject = async (subjectId) => {
-    if (!window.confirm('Delete this subject from academic catalog?')) return;
+    const confirmed = window.showCustomConfirm
+      ? await window.showCustomConfirm('Delete this subject from academic catalog?', 'Delete Subject', 'Delete', 'Cancel')
+      : window.confirm('Delete this subject from academic catalog?');
+    if (!confirmed) return;
     try {
       const res = await adminApi.deleteSubject(subjectId);
       if (res.success) {
@@ -236,7 +259,10 @@ export const AdminDashboardPage = () => {
   };
 
   const handleDeleteBlog = async (blogId) => {
-    if (!window.confirm('Are you sure you want to delete this blog article?')) return;
+    const confirmed = window.showCustomConfirm
+      ? await window.showCustomConfirm('Are you sure you want to delete this blog article?', 'Delete Blog Article', 'Delete', 'Cancel')
+      : window.confirm('Are you sure you want to delete this blog article?');
+    if (!confirmed) return;
     try {
       const res = await adminApi.deleteBlog(blogId);
       if (res.success) {
@@ -305,6 +331,10 @@ export const AdminDashboardPage = () => {
                 activityLogs={activityLogs}
                 onVerifyDoc={handleVerifyDoc}
               />
+            )}
+
+            {activeTab === 'demo-requests' && (
+              <AdminDemoRequestsTab />
             )}
 
             {activeTab === 'notifications' && (

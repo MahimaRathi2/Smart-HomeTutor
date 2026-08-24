@@ -9,6 +9,9 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [tutorTyping, setTutorTyping] = useState(false);
   const [tutorTypingName, setTutorTypingName] = useState('');
+  const [isChatLocked, setIsChatLocked] = useState(false);
+  const [chatLockMessage, setChatLockMessage] = useState('');
+
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -30,7 +33,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
         const senderObj = typeof message.sender === 'object' ? message.sender : { _id: message.sender, name: 'Educator' };
         const senderId = senderObj._id;
 
-        if (selectedTutor && selectedTutor._id === senderId) {
+        if (selectedTutor && selectedTutor._id === senderId && !isChatLocked) {
           setMessages((prev) => [...prev, message]);
           fetch(`/api/chat/seen/${senderId}`, { method: 'PATCH' }).catch(() => {});
           if (socketRef.current) socketRef.current.emit('markSeen', { senderId, recipientId: studentUserId });
@@ -40,7 +43,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
       });
 
       socketRef.current.on('userTyping', ({ senderId, senderName }) => {
-        if (selectedTutor && selectedTutor._id === senderId) {
+        if (selectedTutor && selectedTutor._id === senderId && !isChatLocked) {
           setTutorTyping(true);
           setTutorTypingName(senderName || 'Educator');
         }
@@ -56,7 +59,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
-  }, [selectedTutor, studentUserId]);
+  }, [selectedTutor, studentUserId, isChatLocked]);
 
   const loadConversations = async () => {
     try {
@@ -75,7 +78,9 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
               if (!exists) {
                 convList.push({
                   user: tUser,
-                  lastMessage: 'Demo Requested',
+                  chatLocked: true,
+                  lockMessage: 'Chat will be available after the tutor completes the payment.',
+                  lastMessage: 'Chat Locked - Payment Required',
                   unreadCount: 0,
                 });
               }
@@ -89,7 +94,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
       setConversations(convList);
 
       if (convList.length > 0 && !selectedTutor) {
-        selectTutor(convList[0].user);
+        selectTutor(convList[0].user, convList[0]);
       }
     } catch (err) {
       console.error(err);
@@ -100,30 +105,44 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
     loadConversations();
   }, []);
 
-  const selectTutor = async (tUser) => {
+  const selectTutor = async (tUser, convObj = null) => {
     if (!tUser) return;
     setSelectedTutor(tUser);
     setTutorTyping(false);
 
-    try {
-      await fetch(`/api/chat/seen/${tUser._id}`, { method: 'PATCH' });
-      if (socketRef.current) {
-        socketRef.current.emit('markSeen', { senderId: tUser._id, recipientId: studentUserId });
-      }
-    } catch (e) {
-      console.error(e);
+    if (convObj && convObj.chatLocked) {
+      setIsChatLocked(true);
+      setChatLockMessage(convObj.lockMessage || 'Chat will be available after the tutor completes the payment.');
+      setMessages([]);
+      return;
     }
 
     try {
       const res = await fetch(`/api/chat/messages/${tUser._id}`);
       const data = await res.json();
+
+      if (res.status === 403 || data.chatLocked) {
+        setIsChatLocked(true);
+        setChatLockMessage(data.message || 'Chat will be available after the tutor completes the payment.');
+        setMessages([]);
+        return;
+      }
+
+      setIsChatLocked(false);
+      setChatLockMessage('');
+
       if (data.success && data.messages) {
         setMessages(data.messages);
+        await fetch(`/api/chat/seen/${tUser._id}`, { method: 'PATCH' }).catch(() => {});
+        if (socketRef.current) {
+          socketRef.current.emit('markSeen', { senderId: tUser._id, recipientId: studentUserId });
+        }
       } else {
         setMessages([]);
       }
     } catch (err) {
       console.error(err);
+      setMessages([]);
     }
   };
 
@@ -135,7 +154,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
 
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
-    if (!selectedTutor) return;
+    if (!selectedTutor || isChatLocked) return;
     if (!inputMessage.trim() && !pendingFile) return;
 
     const msgContent = inputMessage.trim();
@@ -159,6 +178,12 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
       });
 
       const data = await res.json();
+      if (res.status === 403 || data.chatLocked) {
+        setIsChatLocked(true);
+        setChatLockMessage(data.message || 'Chat will be available after the tutor completes the payment.');
+        return;
+      }
+
       if (data.success && data.data) {
         setMessages((prev) => [...prev, data.data]);
         loadConversations();
@@ -169,6 +194,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
   };
 
   const handleFileUpload = async (e) => {
+    if (isChatLocked) return;
     const file = e.target.files[0];
     if (!file) return;
 
@@ -230,25 +256,30 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
                   const initials = uName.substring(0, 2).toUpperCase();
                   const isActive = selectedTutor && selectedTutor._id === u._id;
                   const unread = c.unreadCount || 0;
+                  const locked = Boolean(c.chatLocked);
 
                   return (
                     <div
                       key={u._id}
                       className={`conversation ${isActive ? 'active' : ''}`}
-                      onClick={() => selectTutor(u)}
+                      onClick={() => selectTutor(u, c)}
                     >
                       <div className="conversation-avatar">{initials}</div>
                       <div style={{ flex: 1, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <strong style={{ fontSize: '14px', color: '#0f2a4a' }}>{uName}</strong>
-                          {unread > 0 && (
+                          {locked ? (
+                            <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10.5px', fontWeight: '800', padding: '2px 7px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <i className="fa-solid fa-lock"></i> Locked
+                            </span>
+                          ) : unread > 0 ? (
                             <span style={{ background: '#dc2626', color: '#ffffff', fontSize: '10.5px', fontWeight: '800', padding: '2px 7px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                               <i className="fa-solid fa-circle" style={{ fontSize: '6px' }}></i> {unread}
                             </span>
-                          )}
+                          ) : null}
                         </div>
-                        <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {c.lastMessage || 'Tap to chat...'}
+                        <p style={{ fontSize: '12px', color: locked ? '#b45309' : '#64748b', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: locked ? 600 : 400 }}>
+                          {locked ? ' Chat Locked' : (c.lastMessage || 'Tap to chat...')}
                         </p>
                       </div>
                     </div>
@@ -260,22 +291,40 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
 
           {/* RIGHT CHAT MAIN AREA */}
           <div className="chat-main">
-            <div className="chat-header">
+            <div className="chat-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3>{selectedTutor ? selectedTutor.name || 'Tutor' : 'Select Tutor'}</h3>
+                <h3 style={{ margin: 0 }}>{selectedTutor ? selectedTutor.name || 'Tutor' : 'Select Tutor'}</h3>
                 <small>Active Educator</small>
-                {tutorTyping && (
+                {tutorTyping && !isChatLocked && (
                   <small style={{ color: '#0284c7', fontWeight: 600, fontSize: '12px', marginLeft: '8px' }}>
                     <i className="fa-solid fa-pen-nib fa-bounce"></i> {tutorTypingName} is typing...
                   </small>
                 )}
               </div>
 
-
+              {selectedTutor && (
+                isChatLocked ? (
+                  <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <i className="fa-solid fa-lock"></i> Chat Locked
+                  </span>
+                ) : (
+                  <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <i className="fa-solid fa-comments"></i> 💬 Chat Unlocked
+                  </span>
+                )
+              )}
             </div>
 
             <div className="chat-messages" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', overflowY: 'auto' }}>
-              {messages.length === 0 ? (
+              {isChatLocked ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', margin: 'auto', maxWidth: '420px', background: '#fffbebf5', border: '1px solid #fef3c7', borderRadius: '16px', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)' }}>
+                  <i className="fa-solid fa-lock" style={{ fontSize: '48px', color: '#f59e0b', marginBottom: '16px', display: 'block' }}></i>
+                  <h3 style={{ margin: '0 0 8px 0', color: '#92400e', fontSize: '18px', fontWeight: 800 }}> Chat Locked</h3>
+                  <p style={{ margin: 0, color: '#b45309', fontSize: '13.5px', lineHeight: 1.5, fontWeight: 500 }}>
+                    {chatLockMessage || 'Chat will be available after the tutor completes the payment.'}
+                  </p>
+                </div>
+              ) : messages.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>
                   No message history. Type a message below to start chatting with your tutor!
                 </div>
@@ -322,7 +371,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
             </div>
 
             {/* PENDING FILE PREVIEW */}
-            {pendingFile && (
+            {pendingFile && !isChatLocked && (
               <div style={{ padding: '8px 16px', background: '#e0f2fe', borderTop: '1px solid #bae6fd', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#0369a1' }}>
                 <span>📎 Ready to send: <strong>{pendingFile.fileName}</strong></span>
                 <button type="button" onClick={() => setPendingFile(null)} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>✕ Cancel</button>
@@ -330,22 +379,23 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
             )}
 
             <div className="chat-footer">
-              <label className="dash-btn dash-btn-outline" style={{ padding: '10px 14px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} title="Attach File">
+              <label className="dash-btn dash-btn-outline" style={{ padding: '10px 14px', cursor: isChatLocked ? 'not-allowed' : 'pointer', opacity: isChatLocked ? 0.5 : 1, display: 'inline-flex', alignItems: 'center' }} title={isChatLocked ? 'Chat Locked' : 'Attach File'}>
                 <i className="fa-solid fa-paperclip" style={{ fontSize: '16px' }}></i>
-                <input type="file" accept="image/*,.pdf,.doc,.docx" style={{ display: 'none' }} onChange={handleFileUpload} />
+                <input type="file" accept="image/*,.pdf,.doc,.docx" style={{ display: 'none' }} disabled={isChatLocked} onChange={handleFileUpload} />
               </label>
 
               <input
                 type="text"
-                placeholder={uploadingFile ? 'Uploading file...' : 'Type message...'}
+                placeholder={isChatLocked ? '🔒 Chat will be available after the tutor completes the payment.' : (uploadingFile ? 'Uploading file...' : 'Type message...')}
                 value={inputMessage}
+                disabled={isChatLocked}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSendMessage(e);
                 }}
               />
 
-              <button type="button" className="dash-btn dash-btn-primary" onClick={handleSendMessage} disabled={uploadingFile}>
+              <button type="button" className="dash-btn dash-btn-primary" onClick={handleSendMessage} disabled={isChatLocked || uploadingFile} style={{ opacity: isChatLocked ? 0.5 : 1, cursor: isChatLocked ? 'not-allowed' : 'pointer' }}>
                 <i className="fa-solid fa-paper-plane"></i>
               </button>
             </div>

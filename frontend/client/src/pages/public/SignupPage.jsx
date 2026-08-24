@@ -74,6 +74,11 @@ export const SignupPage = () => {
       return;
     }
 
+    if (!/^\d{10}$/.test(phone.trim())) {
+      setErrorMessage('Mobile number must contain exactly 10 digits.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -239,9 +244,12 @@ export const SignupPage = () => {
                     <input
                       type="tel"
                       name="phone"
-                      placeholder="Enter Phone Number"
+                      placeholder="10-digit mobile number"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      maxLength={10}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       required
                     />
                   </div>

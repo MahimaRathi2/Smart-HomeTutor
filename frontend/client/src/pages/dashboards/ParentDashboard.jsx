@@ -13,12 +13,22 @@ import { ParentChatTab } from '../../components/dashboard/parent/ParentChatTab';
 import { AddChildModal } from '../../components/dashboard/parent/AddChildModal';
 import { ParentCertificatesModal } from '../../components/dashboard/parent/ParentCertificatesModal';
 
+import { useDashboardTab } from '../../hooks/useDashboardTab';
+
+const PARENT_VALID_TABS = [
+  'overview',
+  'notifications',
+  'search-tutors',
+  'invoices',
+  'chat',
+];
+
 export const ParentDashboard = () => {
   const navigate = useNavigate();
   const { isAuth, userRole, userName, userEmail } = useAuth();
 
   // Navigation Tabs State ('overview' | 'notifications' | 'search-tutors' | 'invoices' | 'chat')
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useDashboardTab('parent_activeTab', 'overview', PARENT_VALID_TABS);
 
   // Modals State
   const [isAddChildOpen, setIsAddChildOpen] = useState(false);

@@ -74,7 +74,10 @@ export const AdminUsersTab = ({ onRoleChange, onDeleteUser, onFilterChange }) =>
   };
 
   const handleDelete = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user account from MongoDB?')) return;
+    const confirmed = window.showCustomConfirm
+      ? await window.showCustomConfirm('Are you sure you want to delete this user account from MongoDB?', 'Delete User', 'Delete', 'Cancel')
+      : window.confirm('Are you sure you want to delete this user account from MongoDB?');
+    if (!confirmed) return;
     try {
       const res = await adminApi.deleteUser(userId);
       if (res.success) {
@@ -89,11 +92,28 @@ export const AdminUsersTab = ({ onRoleChange, onDeleteUser, onFilterChange }) =>
     }
   };
 
+  const handleToggleChatUnlock = async (userId) => {
+    try {
+      const res = await adminApi.toggleUserChatUnlock(userId);
+      if (res.success) {
+        setUsers((prev) =>
+          prev.map((u) => (u._id === userId ? { ...u, chatUnlockedByAdmin: res.chatUnlockedByAdmin } : u))
+        );
+        alert(res.message);
+      } else {
+        alert(res.message || 'Failed to update chat unlock status.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating chat unlock status.');
+    }
+  };
+
   return (
     <div className="dash-tab-content" style={{ display: 'block' }}>
       <div className="dash-card">
         {/* CARD HEADER & CONTROLS */}
-        <div className="dash-card-header" style={{ display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'stretch' }}>
+        <div className="dash-card-header" style={{ display: 'flex', flexDirection: 'column', gap: '14px', items: 'stretch' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <h3 style={{ margin: 0 }}><i className="fa-solid fa-user-gear"></i> Multi-Role User Accounts Directory</h3>
 
@@ -242,13 +262,31 @@ export const AdminUsersTab = ({ onRoleChange, onDeleteUser, onFilterChange }) =>
                         </span>
                       </td>
                       <td>
-                        <button
-                          className="dash-btn dash-btn-outline"
-                          style={{ padding: '4px 8px', fontSize: '11px', color: '#ef4444', borderColor: '#fca5a5' }}
-                          onClick={() => handleDelete(user._id)}
-                        >
-                          <i className="fa-solid fa-trash"></i> Delete
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            className="dash-btn"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: user.chatUnlockedByAdmin ? '#dcfce7' : '#fef3c7',
+                              color: user.chatUnlockedByAdmin ? '#15803d' : '#b45309',
+                              border: `1px solid ${user.chatUnlockedByAdmin ? '#86efac' : '#fde68a'}`,
+                            }}
+                            onClick={() => handleToggleChatUnlock(user._id)}
+                            title="Toggle Admin Chat Unlock"
+                          >
+                            {user.chatUnlockedByAdmin ? '🔓 Chat Unlocked' : '🔒 Unlock Chat'}
+                          </button>
+                          <button
+                            className="dash-btn dash-btn-outline"
+                            style={{ padding: '4px 8px', fontSize: '11px', color: '#ef4444', borderColor: '#fca5a5' }}
+                            onClick={() => handleDelete(user._id)}
+                          >
+                            <i className="fa-solid fa-trash"></i> Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

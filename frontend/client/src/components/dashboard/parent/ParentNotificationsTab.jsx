@@ -145,7 +145,23 @@ export const ParentNotificationsTab = ({ onUnreadChange }) => {
                       </h4>
                       <span style={{ fontSize: '11px', color: '#64748b' }}>{dt}</span>
                     </div>
-                    <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#334155' }}>{n.message}</p>
+                    <div
+                      className="announcement-content-body"
+                      style={{
+                        height: 'auto',
+                        maxHeight: 'none',
+                        overflow: 'visible',
+                        overflowWrap: 'anywhere',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap',
+                        fontSize: '13px',
+                        color: '#334155',
+                        lineHeight: '1.5',
+                        margin: '0 0 10px 0',
+                      }}
+                    >
+                      {n.message}
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       {n.actionUrl ? (
                         <a href={n.actionUrl} className="dash-btn dash-btn-primary" style={{ background: '#7e22ce', fontSize: '11px', padding: '3px 10px' }}>

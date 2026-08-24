@@ -96,6 +96,27 @@ export const studentApi = {
     return await res.json();
   },
 
+  // Get Assigned Tutors
+  getMyTutors: async () => {
+    const res = await fetch('/api/student/my-tutors');
+    return await res.json();
+  },
+
+  // Submit Recipient-Specific Homework
+  submitHomework: async (formData) => {
+    const res = await fetch('/api/student/submit-homework', {
+      method: 'POST',
+      body: formData,
+    });
+    return await res.json();
+  },
+
+  // Get Submitted Homework History
+  getSubmittedHomework: async () => {
+    const res = await fetch('/api/student/submitted-homework');
+    return await res.json();
+  },
+
   // Fetch Certificates
   getCertificates: async () => {
     const res = await fetch('/api/student/certificates');
@@ -111,6 +132,30 @@ export const studentApi = {
   // Fetch Class Schedule
   getClassSchedule: async () => {
     const res = await fetch('/api/student/class-schedule');
+    return await res.json();
+  },
+
+  // Payment Methods
+  createPaymentOrder: async (payload) => {
+    const res = await fetch('/api/payment/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  },
+
+  verifyPayment: async (payload) => {
+    const res = await fetch('/api/payment/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  },
+
+  getPaymentHistory: async () => {
+    const res = await fetch('/api/payment/history');
     return await res.json();
   },
 };

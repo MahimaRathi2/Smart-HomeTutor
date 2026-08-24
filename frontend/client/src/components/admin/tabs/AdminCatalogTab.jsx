@@ -151,12 +151,15 @@ export const AdminCatalogTab = ({ subjects = [], onOpenAddSubject, onUpdateSubje
   };
 
   // Delete Handler for ALL Subjects
-  const handleSubjectDelete = (item, groupTitle) => {
+  const handleSubjectDelete = async (item, groupTitle) => {
     if (typeof item === 'object' && item._id) {
       if (onDeleteSubject) onDeleteSubject(item._id);
     } else {
       const topicName = typeof item === 'string' ? item : item.name;
-      if (!window.confirm(`Delete subject "${topicName}" from ${groupTitle}?`)) return;
+      const confirmed = window.showCustomConfirm
+        ? await window.showCustomConfirm(`Delete subject "${topicName}" from ${groupTitle}?`, 'Delete Subject', 'Delete', 'Cancel')
+        : window.confirm(`Delete subject "${topicName}" from ${groupTitle}?`);
+      if (!confirmed) return;
       const topicKey = `${groupTitle}-${topicName}`;
       setRemovedTopics((prev) => [...prev, topicKey, topicName]);
     }

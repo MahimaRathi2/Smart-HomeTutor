@@ -86,12 +86,12 @@ const createNotification = async ({ userId, role, title, message, type = "system
  * Create an Admin Panel notification in MongoDB and emit real-time Socket.IO event to Admin(s)
  */
 const createAdminNotification = async ({
-  title = "New Tutor Request",
+  title = "New Demo Class Request",
   message,
   sourceUser = null,
   sourceRole = null,
   type = "tutor_request",
-  actionUrl = "/dashboard/admin?tab=tutor-verifications",
+  actionUrl = "/dashboard/admin?tab=demo-requests",
   app,
 }) => {
   try {

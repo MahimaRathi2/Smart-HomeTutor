@@ -129,10 +129,14 @@ export const AdminBlogEditor = ({ blogToEdit = null, onBack, onSuccess }) => {
     handleEditorInput();
   };
 
-  const handleInsertTable = () => {
-    const rowsInput = prompt('Enter number of rows:', '3');
+  const handleInsertTable = async () => {
+    const rowsInput = window.showCustomPrompt
+      ? await window.showCustomPrompt('Enter number of rows:', '3', 'Insert Table')
+      : prompt('Enter number of rows:', '3');
     if (rowsInput === null) return;
-    const colsInput = prompt('Enter number of columns:', '3');
+    const colsInput = window.showCustomPrompt
+      ? await window.showCustomPrompt('Enter number of columns:', '3', 'Insert Table')
+      : prompt('Enter number of columns:', '3');
     if (colsInput === null) return;
 
     const rows = Math.max(1, parseInt(rowsInput, 10) || 3);
@@ -487,8 +491,10 @@ export const AdminBlogEditor = ({ blogToEdit = null, onBack, onSuccess }) => {
                   <button
                     type="button"
                     title="Insert Link"
-                    onClick={() => {
-                      const url = prompt('Enter link URL (e.g. https://example.com):');
+                    onClick={async () => {
+                      const url = window.showCustomPrompt
+                        ? await window.showCustomPrompt('Enter link URL (e.g. https://example.com):', 'https://', 'Insert Link')
+                        : prompt('Enter link URL (e.g. https://example.com):');
                       if (url) execCmd('createLink', url);
                     }}
                     style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer' }}
