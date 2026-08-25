@@ -115,6 +115,12 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
+    referralRewardStatus: {
+      type: String,
+      enum: ["Pending", "Rewarded", "None"],
+      default: "None",
+    },
+
     preferredLanguage: {
       type: String,
       default: "English",

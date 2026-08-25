@@ -57,10 +57,22 @@ const paymentSchema = new mongoose.Schema(
       enum: ["Wallet Topup", "Tuition Invoice Payment", "Tuition Fee Payment", "Payout Request"],
       default: "Wallet Topup",
     },
+    paymentMethod: {
+      type: String,
+      default: "Razorpay",
+    },
     paymentStatus: {
       type: String,
-      enum: ["Pending", "Success", "Paid", "Failed"],
+      enum: ["Pending", "Success", "Paid", "Failed", "Cancelled"],
       default: "Pending",
+    },
+    failureReason: {
+      type: String,
+      default: "",
+    },
+    isTestMode: {
+      type: Boolean,
+      default: false,
     },
   },
   {

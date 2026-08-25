@@ -138,8 +138,8 @@ exports.markAttendance = async (req, res) => {
     const { id } = req.params;
     const { attendance } = req.body; // Present or Absent
 
-    if (!["Present", "Absent", "Pending"].includes(attendance)) {
-      return res.status(400).json({ success: false, message: "Attendance status must be Present, Absent, or Pending." });
+    if (!["Present", "Absent", "Late", "Pending"].includes(attendance)) {
+      return res.status(400).json({ success: false, message: "Attendance status must be Present, Absent, Late, or Pending." });
     }
 
     const schedule = await ClassSchedule.findById(id);
@@ -148,7 +148,7 @@ exports.markAttendance = async (req, res) => {
     }
 
     schedule.attendance = attendance;
-    if (attendance === "Present") schedule.status = "Completed";
+    if (["Present", "Absent", "Late"].includes(attendance)) schedule.status = "Completed";
     await schedule.save();
 
     await createNotification({

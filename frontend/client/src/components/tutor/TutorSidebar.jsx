@@ -14,6 +14,8 @@ export const TutorSidebar = ({ activeTab, onSelectTab, tutorName, tutorEmail, un
     { id: 'assignments', label: 'Homework & Notes', icon: 'fa-file-arrow-up' },
     { id: 'chat', label: 'Student Chat', icon: 'fa-comments', badge: unreadCount },
     { id: 'rates-availability', label: 'Subjects & Rates', icon: 'fa-sliders' },
+    { id: 'edit-profile', label: 'Edit Profile', icon: 'fa-user-pen' },
+    { id: 'complaints', label: 'Support & Complaints', icon: 'fa-circle-exclamation' },
   ];
 
   return (

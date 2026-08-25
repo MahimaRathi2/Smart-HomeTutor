@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export const NotificationsTab = ({ userRole = 'student' }) => {
+export const NotificationsTab = ({ userRole = 'student', onSelectTab }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -34,16 +34,13 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
 
   const handleMarkAsRead = async (id) => {
     try {
-      const res = await fetch(`/api/notifications/${id}/read`, {
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === id ? { ...n, isRead: true, read: true } : n))
+      );
+      await fetch(`/api/notifications/${id}/read`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
-      const data = await res.json();
-      if (data.success) {
-        setNotifications((prev) =>
-          prev.map((n) => (n._id === id ? { ...n, isRead: true, read: true } : n))
-        );
-      }
     } catch (err) {
       console.error('Mark Read Error:', err);
     }
@@ -51,34 +48,89 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const res = await fetch('/api/notifications/read-all', {
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, isRead: true, read: true }))
+      );
+      await fetch('/api/notifications/read-all', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
-      const data = await res.json();
-      if (data.success) {
-        setNotifications((prev) =>
-          prev.map((n) => ({ ...n, isRead: true, read: true }))
-        );
-      }
     } catch (err) {
       console.error('Mark All Read Error:', err);
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, e) => {
+    if (e) e.stopPropagation();
     try {
-      const res = await fetch(`/api/notifications/${id}`, {
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+      await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
       });
-      const data = await res.json();
-      if (data.success) {
-        setNotifications((prev) => prev.filter((n) => n._id !== id));
-      }
     } catch (err) {
       console.error('Delete Notification Error:', err);
     }
+  };
+
+  const handleNotificationCardClick = (e, item) => {
+    // 1. Mark notification as read if unread
+    if (!item.isRead && !item.read) {
+      handleMarkAsRead(item._id);
+    }
+
+    // 2. Perform navigation / tab redirection if actionUrl exists
+    if (item.actionUrl) {
+      if (item.actionUrl.includes('tab=')) {
+        const tabParam = item.actionUrl.split('tab=')[1]?.split('&')[0];
+        if (tabParam && typeof onSelectTab === 'function') {
+          onSelectTab(tabParam);
+          return;
+        }
+      }
+      window.location.href = item.actionUrl;
+    }
+  };
+
+  const handleReadMoreRedirect = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (typeof onSelectTab === 'function') {
+      onSelectTab('overview');
+    } else {
+      const roleKey = `${userRole || 'student'}_activeTab`;
+      localStorage.setItem(roleKey, 'overview');
+      window.dispatchEvent(new Event('storage'));
+    }
+  };
+
+  const parseNotificationPreview = (message = '') => {
+    const trimmed = message.trim();
+    if (!trimmed) return { previewText: '', hasMore: false };
+
+    const doubleNewlineBlocks = trimmed.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+
+    if (doubleNewlineBlocks.length > 1) {
+      return {
+        previewText: doubleNewlineBlocks[0],
+        hasMore: true,
+      };
+    }
+
+    const singleLines = trimmed.split(/\n/).map((l) => l.trim()).filter(Boolean);
+    if (singleLines.length > 1) {
+      return {
+        previewText: singleLines[0],
+        hasMore: true,
+      };
+    }
+
+    return {
+      previewText: trimmed,
+      hasMore: false,
+    };
   };
 
   const getNotificationIcon = (type) => {
@@ -113,7 +165,7 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
           className="dash-card-header"
           style={{
             display: 'flex',
-            justify: 'space-between',
+            justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: '12px',
@@ -193,10 +245,14 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
                   minute: '2-digit',
                 });
 
+                const { previewText, hasMore } = parseNotificationPreview(item.message);
+
                 return (
                   <div
                     key={item._id}
+                    onClick={(e) => handleNotificationCardClick(e, item)}
                     style={{
+                      cursor: 'pointer',
                       background: isUnread ? '#f0f9ff' : '#ffffff',
                       border: isUnread ? '1px solid #bae6fd' : '1px solid #e2e8f0',
                       borderLeft: isUnread ? '4px solid #0284c7' : '1px solid #e2e8f0',
@@ -213,9 +269,9 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
                     {item.type !== 'tutor_request' && (
                       <div
                         style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '10px',
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '12px',
                           background: iconStyle.bg,
                           color: iconStyle.color,
                           display: 'flex',
@@ -223,9 +279,23 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
                           justifyContent: 'center',
                           fontSize: '18px',
                           flexShrink: 0,
+                          alignSelf: 'center',
                         }}
                       >
-                        <i className={`fa-solid ${iconStyle.icon}`}></i>
+                        <i
+                          className={`fa-solid ${iconStyle.icon}`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            lineHeight: 1,
+                            margin: 0,
+                            padding: 0,
+                            width: '100%',
+                            height: '100%',
+                            textAlign: 'center',
+                          }}
+                        ></i>
                       </div>
                     )}
 
@@ -260,17 +330,44 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
                           fontSize: '13px',
                           color: '#334155',
                           lineHeight: '1.5',
-                          margin: '0 0 10px 0',
+                          margin: '0 0 8px 0',
                         }}
                       >
-                        {item.message}
+                        {previewText}
                       </div>
+
+                      {hasMore && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <button
+                            type="button"
+                            onClick={handleReadMoreRedirect}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              color: '#0284c7',
+                              fontWeight: '700',
+                              fontSize: '12.5px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            Read More <i className="fa-solid fa-arrow-right" style={{ fontSize: '11px' }}></i>
+                          </button>
+                        </div>
+                      )}
 
                       {/* ACTION BUTTON & ITEM ACTIONS */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                         {item.actionUrl ? (
                           <a
                             href={item.actionUrl}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleNotificationCardClick(e, item);
+                            }}
                             className="dash-btn dash-btn-primary"
                             style={{ padding: '4px 12px', fontSize: '12px', textDecoration: 'none' }}
                           >
@@ -282,7 +379,10 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
                           {isUnread && (
                             <button
                               type="button"
-                              onClick={() => handleMarkAsRead(item._id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAsRead(item._id);
+                              }}
                               style={{
                                 background: 'transparent',
                                 border: 'none',
@@ -298,7 +398,7 @@ export const NotificationsTab = ({ userRole = 'student' }) => {
                           )}
                           <button
                             type="button"
-                            onClick={() => handleDelete(item._id)}
+                            onClick={(e) => handleDelete(item._id, e)}
                             style={{
                               background: 'transparent',
                               border: 'none',

@@ -102,6 +102,30 @@ exports.signup = async (req, res) => {
       return res.redirect("/signup?error=" + encodeURIComponent(msg));
     }
 
+    let initialWallet = 0;
+    let validReferredBy = "";
+    let referralRewardStatus = "None";
+    const rawReferral = (referredBy || referralCode || (req.query && req.query.ref) || "").trim().toUpperCase();
+
+    if (rawReferral) {
+      const referrer = await User.findOne({ referralCode: rawReferral });
+      if (!referrer) {
+        const msg = "Invalid referral code. Please check your code or leave it blank.";
+        if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
+        return res.redirect("/signup?error=" + encodeURIComponent(msg));
+      }
+
+      if (referrer.email.toLowerCase().trim() === normalizedEmail) {
+        const msg = "Self-referral is not allowed. Please enter a valid friend's referral code or leave it blank.";
+        if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
+        return res.redirect("/signup?error=" + encodeURIComponent(msg));
+      }
+
+      validReferredBy = referrer.referralCode;
+      referralRewardStatus = "Pending";
+      initialWallet = 0;
+    }
+
     const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
@@ -156,48 +180,6 @@ exports.signup = async (req, res) => {
 
     console.log(`🎲 [OTP GENERATED] New user OTP generated for ${normalizedEmail}.`);
 
-    let initialWallet = 0;
-    let validReferredBy = "";
-    const rawReferral = (referredBy || referralCode || (req.query && req.query.ref) || "").trim().toUpperCase();
-
-    if (rawReferral) {
-      const referrer = await User.findOne({ referralCode: rawReferral });
-      if (!referrer) {
-        const msg = "Invalid referral code. Please check your code or leave it blank.";
-        if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
-        return res.redirect("/signup?error=" + encodeURIComponent(msg));
-      }
-
-      if (referrer.email.toLowerCase().trim() === normalizedEmail) {
-        const msg = "Self-referral is not allowed. Please enter a valid friend's referral code or leave it blank.";
-        if (isJsonRequest) return res.status(400).json({ success: false, message: msg });
-        return res.redirect("/signup?error=" + encodeURIComponent(msg));
-      }
-
-      validReferredBy = referrer.referralCode;
-      initialWallet = 50; 
-
-      referrer.walletBalance = (referrer.walletBalance || 0) + 100;
-      referrer.referralEarnings = (referrer.referralEarnings || 0) + 100;
-      await referrer.save();
-
-      await Transaction.create({
-        user: referrer._id,
-        type: "Credit",
-        amount: 100,
-        description: `Referral Bonus for inviting ${fullName}`,
-        status: "Completed",
-      });
-
-      await createNotification({
-        userId: referrer._id,
-        title: "Referral Bonus Received 🎉",
-        message: `You earned ₹100 bonus because ${fullName} joined using your referral code!`,
-        type: "payment",
-        app: req.app,
-      });
-    }
-
     try {
       console.log(`📤 [EMAIL SENDING STARTED] Sending verification email to ${normalizedEmail}...`);
       await sendVerificationEmail({ to: normalizedEmail, otp: otpCode, name: fullName });
@@ -219,6 +201,7 @@ exports.signup = async (req, res) => {
       walletBalance: initialWallet,
       referralCode: newReferralCode,
       referredBy: validReferredBy,
+      referralRewardStatus: referralRewardStatus,
       isVerified: false,
       otp: otpCode,
       otpExpires: Date.now() + 10 * 60 * 1000,
@@ -595,6 +578,17 @@ exports.resetPassword = async (req, res) => {
     } else {
       return res.status(400).json({ success: false, message: "Email, OTP, and new password are required." });
     }
+
+    if (user.password) {
+      const isSamePassword = await bcrypt.compare(newPassword, user.password);
+      if (isSamePassword) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be different from your previous password.",
+        });
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     user.resetPasswordOtp = "";

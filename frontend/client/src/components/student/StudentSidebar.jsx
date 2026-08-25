@@ -13,6 +13,7 @@ export const StudentSidebar = ({ activeTab, onSelectTab, studentUser, onOpenCert
     { key: 'learning', label: 'Homework & Notes', icon: 'fa-book-open-reader' },
     { key: 'chat', label: 'Messages', icon: 'fa-comments' },
     { key: 'payments', label: 'Smart Wallet & Billing', icon: 'fa-wallet' },
+    { key: 'complaints', label: 'Help Desk & Complaints', icon: 'fa-circle-exclamation' },
   ];
 
   return (

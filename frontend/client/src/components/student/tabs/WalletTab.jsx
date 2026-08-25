@@ -9,7 +9,14 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
   // Tuition Fee Payment State
   const [tutors, setTutors] = useState([]);
   const [selectedTutorId, setSelectedTutorId] = useState('');
-  const [tuitionAmount, setTuitionAmount] = useState('500');
+  const [feeSummary, setFeeSummary] = useState({
+    totalTuitionFee: 0,
+    totalPaidAmount: 0,
+    paymentLeft: 0,
+    paymentStatus: 'Loading...',
+  });
+
+  const [tuitionAmount, setTuitionAmount] = useState('');
   const [payState, setPayState] = useState({ status: 'idle', message: '' }); // idle | processing | success | failed
 
   // Payment History State
@@ -19,6 +26,12 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    if (selectedTutorId) {
+      loadTutorFeeSummary(selectedTutorId);
+    }
+  }, [selectedTutorId]);
 
   const fetchInitialData = async () => {
     setLoadingHistory(true);
@@ -31,7 +44,9 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
       if (tutorsRes.success && Array.isArray(tutorsRes.tutors)) {
         setTutors(tutorsRes.tutors);
         if (tutorsRes.tutors.length > 0) {
-          setSelectedTutorId(tutorsRes.tutors[0]._id);
+          const firstTutor = tutorsRes.tutors[0];
+          setSelectedTutorId(firstTutor._id);
+          applyFeeSummary(firstTutor);
         }
       }
 
@@ -42,6 +57,54 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
       console.error('Fetch Payment Data Error:', err);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const applyFeeSummary = (summaryObj) => {
+    if (!summaryObj) return;
+    const total = Number(summaryObj.totalTuitionFee) || 0;
+    const paid = Number(summaryObj.totalPaidAmount) || 0;
+    const left = Number(summaryObj.paymentLeft) || 0;
+    const status = summaryObj.paymentStatus || 'Unpaid';
+
+    setFeeSummary({
+      totalTuitionFee: total,
+      totalPaidAmount: paid,
+      paymentLeft: left,
+      paymentStatus: status,
+    });
+
+    setTuitionAmount(left > 0 ? String(left) : '');
+  };
+
+  const loadTutorFeeSummary = async (tutorId) => {
+    if (!tutorId) return;
+    try {
+      const res = await studentApi.getTutorFeeSummary(tutorId);
+      if (res.success && res.summary) {
+        applyFeeSummary(res.summary);
+      }
+    } catch (err) {
+      console.error('Load Tutor Fee Summary Error:', err);
+    }
+  };
+
+  const refreshAllPaymentData = async (tId) => {
+    try {
+      const [hRes, fRes] = await Promise.all([
+        studentApi.getPaymentHistory(),
+        studentApi.getTutorFeeSummary(tId || selectedTutorId),
+      ]);
+
+      if (hRes.success && Array.isArray(hRes.payments)) {
+        setPaymentHistory(hRes.payments);
+      }
+
+      if (fRes.success && fRes.summary) {
+        applyFeeSummary(fRes.summary);
+      }
+    } catch (err) {
+      console.error('Refresh Payment Data Error:', err);
     }
   };
 
@@ -73,8 +136,23 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
   // Razorpay Tuition Fee Payment Flow
   const handlePayTuitionFee = async (e) => {
     e.preventDefault();
-    if (!tuitionAmount || Number(tuitionAmount) <= 0) {
+    const payAmt = Number(tuitionAmount);
+
+    if (!selectedTutorId) {
+      setPayState({ status: 'failed', message: 'Please select an assigned tutor.' });
+      return;
+    }
+
+    if (!payAmt || payAmt <= 0) {
       setPayState({ status: 'failed', message: 'Please enter a valid tuition fee amount.' });
+      return;
+    }
+
+    if (feeSummary.totalTuitionFee > 0 && payAmt > feeSummary.paymentLeft) {
+      setPayState({
+        status: 'failed',
+        message: `Entered amount (₹${payAmt}) exceeds the remaining payable fee balance of ₹${feeSummary.paymentLeft}.`,
+      });
       return;
     }
 
@@ -87,11 +165,11 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
         return;
       }
 
-      // 1. Create Razorpay Order on Backend
+      // 1. Create Razorpay Order on Backend (Backend verifies max payable limits)
       const orderRes = await studentApi.createPaymentOrder({
-        amount: Number(tuitionAmount),
+        amount: payAmt,
         paymentType: 'Tuition Fee Payment',
-        tutorId: selectedTutorId || undefined,
+        tutorId: selectedTutorId,
       });
 
       if (!orderRes.success) {
@@ -116,17 +194,13 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
               razorpay_payment_id: response.razorpay_payment_id || `pay_${Date.now()}`,
               razorpay_signature: response.razorpay_signature || 'simulated_signature',
               paymentType: 'Tuition Fee Payment',
-              amount: Number(tuitionAmount),
-              tutorId: selectedTutorId || undefined,
+              amount: payAmt,
+              tutorId: selectedTutorId,
             });
 
             if (verifyRes.success) {
-              setPayState({ status: 'success', message: '✅ Payment Verified & Tuition Fee Paid! Student-Tutor Chat Unlocked.' });
-              // Refresh payment history
-              const hRes = await studentApi.getPaymentHistory();
-              if (hRes.success && Array.isArray(hRes.payments)) {
-                setPaymentHistory(hRes.payments);
-              }
+              setPayState({ status: 'success', message: '✅ Payment Verified & Tuition Fee Paid Successfully!' });
+              await refreshAllPaymentData(selectedTutorId);
             } else {
               setPayState({ status: 'failed', message: verifyRes.message || 'Payment signature verification failed.' });
             }
@@ -136,8 +210,14 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
           }
         },
         modal: {
-          ondismiss: () => {
+          ondismiss: async () => {
             setPayState({ status: 'failed', message: 'Payment cancelled by user.' });
+            try {
+              await studentApi.recordPaymentCancel({ razorpay_order_id: orderRes.orderId, reason: 'Payment cancelled by user.' });
+              await refreshAllPaymentData(selectedTutorId);
+            } catch (err) {
+              console.error('Cancel recording error:', err);
+            }
           },
         },
         prefill: {
@@ -151,8 +231,15 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
       // Fallback for simulation if Razorpay JS object is mocked in dev environment
       if (window.Razorpay) {
         const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', (resp) => {
-          setPayState({ status: 'failed', message: resp.error ? resp.error.description : 'Payment Failed.' });
+        rzp.on('payment.failed', async (resp) => {
+          const reason = resp.error ? resp.error.description : 'Payment Failed.';
+          setPayState({ status: 'failed', message: reason });
+          try {
+            await studentApi.recordPaymentFail({ razorpay_order_id: orderRes.orderId, reason });
+            await refreshAllPaymentData(selectedTutorId);
+          } catch (err) {
+            console.error('Fail recording error:', err);
+          }
         });
         rzp.open();
       } else {
@@ -162,16 +249,13 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
           razorpay_payment_id: `pay_sim_${Date.now()}`,
           razorpay_signature: 'simulated_signature',
           paymentType: 'Tuition Fee Payment',
-          amount: Number(tuitionAmount),
-          tutorId: selectedTutorId || undefined,
+          amount: payAmt,
+          tutorId: selectedTutorId,
         });
 
         if (verifyRes.success) {
-          setPayState({ status: 'success', message: '✅ Payment Verified & Tuition Fee Paid! Student-Tutor Chat Unlocked.' });
-          const hRes = await studentApi.getPaymentHistory();
-          if (hRes.success && Array.isArray(hRes.payments)) {
-            setPaymentHistory(hRes.payments);
-          }
+          setPayState({ status: 'success', message: '✅ Payment Verified & Tuition Fee Paid Successfully!' });
+          await refreshAllPaymentData(selectedTutorId);
         } else {
           setPayState({ status: 'failed', message: verifyRes.message || 'Payment verification failed.' });
         }
@@ -212,11 +296,77 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
           </div>
         )}
 
+        {/* DYNAMIC FEE BREAKDOWN SUMMARY CARDS */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Total Tuition Fee</span>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f2a4a', marginTop: '2px' }}>
+              {feeSummary.totalTuitionFee > 0 ? `₹${feeSummary.totalTuitionFee.toLocaleString('en-IN')}` : 'No Fee Configured'}
+            </div>
+          </div>
+
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 14px' }}>
+            <span style={{ fontSize: '11px', color: '#166534', fontWeight: '700', textTransform: 'uppercase' }}>Paid Amount</span>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#15803d', marginTop: '2px' }}>
+              ₹{feeSummary.totalPaidAmount.toLocaleString('en-IN')}
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: feeSummary.paymentLeft === 0 && feeSummary.totalTuitionFee > 0 ? '#f0fdf4' : '#fffbeb',
+              border: `1px solid ${feeSummary.paymentLeft === 0 && feeSummary.totalTuitionFee > 0 ? '#bbf7d0' : '#fde68a'}`,
+              borderRadius: '10px',
+              padding: '12px 14px',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px',
+                color: feeSummary.paymentLeft === 0 && feeSummary.totalTuitionFee > 0 ? '#166534' : '#b45309',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+              }}
+            >
+              Payment Left
+            </span>
+            <div
+              style={{
+                fontSize: '18px',
+                fontWeight: '800',
+                color: feeSummary.paymentLeft === 0 && feeSummary.totalTuitionFee > 0 ? '#15803d' : '#d97706',
+                marginTop: '2px',
+              }}
+            >
+              ₹{feeSummary.paymentLeft.toLocaleString('en-IN')}
+            </div>
+          </div>
+
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Payment Status</span>
+            <div style={{ marginTop: '4px' }}>
+              <span
+                className={`status-pill ${
+                  feeSummary.paymentStatus === 'Paid'
+                    ? 'status-confirmed'
+                    : feeSummary.paymentStatus === 'Partial Payment'
+                    ? 'status-pending'
+                    : feeSummary.paymentStatus === 'No Fee Configured'
+                    ? 'status-cancelled'
+                    : 'status-pending'
+                }`}
+              >
+                {feeSummary.paymentStatus}
+              </span>
+            </div>
+          </div>
+        </div>
+
         <form onSubmit={handlePayTuitionFee}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                Select Assigned Tutor (Optional)
+                Select Assigned Tutor *
               </label>
               <select
                 value={selectedTutorId}
@@ -224,7 +374,7 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
                 className="tr-select"
               >
                 {tutors.length === 0 ? (
-                  <option value="">No specific tutor selected</option>
+                  <option value="">No assigned tutor found</option>
                 ) : (
                   tutors.map((t) => {
                     const subjectDisplay = t.subject ? ` — ${t.subject}` : '';
@@ -249,7 +399,8 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
                 value={tuitionAmount}
                 onChange={(e) => setTuitionAmount(e.target.value.replace(/\D/g, ''))}
                 className="tr-input"
-                placeholder="Enter fee amount (e.g. 500)"
+                placeholder={feeSummary.paymentLeft > 0 ? `Max ₹${feeSummary.paymentLeft}` : 'Fee amount'}
+                disabled={feeSummary.paymentLeft === 0 || payState.status === 'processing'}
                 required
               />
             </div>
@@ -258,12 +409,16 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
               <button
                 type="submit"
                 className="dash-btn dash-btn-accent"
-                disabled={payState.status === 'processing'}
+                disabled={payState.status === 'processing' || feeSummary.paymentLeft === 0 || feeSummary.totalTuitionFee === 0}
                 style={{ width: '100%', justifyContent: 'center', height: '42px' }}
               >
                 {payState.status === 'processing' ? (
                   <>
                     <i className="fa-solid fa-spinner fa-spin"></i> Processing Payment...
+                  </>
+                ) : feeSummary.paymentLeft === 0 && feeSummary.totalTuitionFee > 0 ? (
+                  <>
+                    <i className="fa-solid fa-circle-check"></i> Tuition Fee Paid
                   </>
                 ) : (
                   <>

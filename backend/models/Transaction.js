@@ -25,6 +25,10 @@ const transactionSchema = new mongoose.Schema(
       enum: ["Completed", "Pending", "Failed"],
       default: "Completed",
     },
+    isTestMode: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

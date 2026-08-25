@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { CreateScheduleModal } from '../../common/CreateScheduleModal';
+import { MarkAttendanceModal } from '../modals/MarkAttendanceModal';
 import { tutorApi } from '../../../services/tutorApi';
 
 export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+
+  const handleOpenAttendance = (item) => {
+    setSelectedSchedule(item);
+    setAttendanceModalOpen(true);
+  };
 
   const handleRequestCert = async (item) => {
     const studentId = item.student?._id || item.student;
@@ -63,7 +71,7 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
                 <th>Student Name</th>
                 <th>Subject & Grade</th>
                 <th>Schedule & Frequency</th>
-                <th>Mode</th>
+                <th>Attendance Status</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -77,6 +85,13 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
               ) : (
                 sessions.map((item, idx) => {
                   const isOnline = !item.mode || item.mode.toLowerCase() === 'online';
+                  const attStatus = item.attendance || 'Pending';
+                  let attBadgeColor = '#64748b';
+                  let attBadgeBg = '#f1f5f9';
+                  if (attStatus === 'Present') { attBadgeColor = '#15803d'; attBadgeBg = '#dcfce7'; }
+                  else if (attStatus === 'Absent') { attBadgeColor = '#b91c1c'; attBadgeBg = '#fee2e2'; }
+                  else if (attStatus === 'Late') { attBadgeColor = '#b45309'; attBadgeBg = '#fef3c7'; }
+
                   return (
                     <tr key={item._id || idx}>
                       <td style={{ fontWeight: '700', color: '#0f2a4a' }}>
@@ -88,18 +103,12 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
                         <div style={{ fontSize: '11px', color: '#64748b' }}>{item.frequency || 'Weekly'} ({item.days || 'Mon, Wed'})</div>
                       </td>
                       <td>
-                        {isOnline ? (
-                          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '3px 10px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700' }}>
-                            Online (WebRTC)
-                          </span>
-                        ) : (
-                          <span style={{ background: '#fef3c7', color: '#b45309', padding: '3px 10px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700' }}>
-                            Offline
-                          </span>
-                        )}
+                        <span style={{ background: attBadgeBg, color: attBadgeColor, padding: '3px 10px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <i className="fa-solid fa-clipboard-user"></i> {attStatus}
+                        </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                           {isOnline && (
                             <button
                               type="button"
@@ -120,6 +129,14 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
                               <i className="fa-solid fa-video"></i> Start Class
                             </button>
                           )}
+                          <button
+                            type="button"
+                            className="dash-btn dash-btn-outline"
+                            style={{ padding: '5px 10px', fontSize: '11.5px', borderColor: '#10b981', color: '#047857' }}
+                            onClick={() => handleOpenAttendance(item)}
+                          >
+                            <i className="fa-solid fa-clipboard-check"></i> Mark Attendance
+                          </button>
                           <button
                             type="button"
                             className="dash-btn dash-btn-outline"
@@ -146,6 +163,15 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
           if (onRefresh) onRefresh();
         }}
         userRole="tutor"
+      />
+
+      <MarkAttendanceModal
+        isOpen={attendanceModalOpen}
+        onClose={() => setAttendanceModalOpen(false)}
+        schedule={selectedSchedule}
+        onSuccess={() => {
+          if (onRefresh) onRefresh();
+        }}
       />
     </div>
   );

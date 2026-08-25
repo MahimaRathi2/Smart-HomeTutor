@@ -871,25 +871,39 @@ exports.uploadBlogCover = async (req, res) => {
   }
 };
 
+exports.getAllComplaints = async (req, res) => {
+  try {
+    const complaints = await Complaint.find()
+      .populate("user", "name email role phone")
+      .populate("relatedUser", "name email role phone")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, complaints });
+  } catch (err) {
+    console.error("Get All Complaints Admin Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 exports.resolveComplaint = async (req, res) => {
   try {
     const { id } = req.params;
     const { adminReply, status } = req.body;
 
-    const complaint = await Complaint.findById(id).populate("user");
+    const complaint = await Complaint.findById(id).populate("user", "name email role");
     if (!complaint) {
       return res.status(404).json({ success: false, message: "Complaint ticket not found." });
     }
 
-    complaint.status = status || "Resolved";
-    if (adminReply) complaint.adminReply = adminReply;
+    if (status) complaint.status = status;
+    if (adminReply !== undefined) complaint.adminReply = adminReply;
     await complaint.save();
 
     if (complaint.user) {
       await createNotification({
         userId: complaint.user._id,
         title: "Help Desk Ticket Update 🎟️",
-        message: `Your ticket regarding '${complaint.subject}' was updated: ${adminReply || status}`,
+        message: `Your ticket regarding '${complaint.subject}' has been updated to '${complaint.status}'${adminReply ? `: "${adminReply}"` : '.'}`,
         type: "system",
         app: req.app,
       });
@@ -1254,7 +1268,8 @@ exports.deleteSubject = async (req, res) => {
 exports.getFinanceRevenue = async (req, res) => {
   try {
     const Transaction = require("../models/Transaction");
-    const completedTransactions = await Transaction.find({ status: "Completed" });
+    // Only verified live/production transactions contribute to revenue and commissions
+    const completedTransactions = await Transaction.find({ status: "Completed", isTestMode: { $ne: true } });
     const grossRevenue = completedTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
 
     const tutorPayout = grossRevenue * 0.85;
@@ -1408,7 +1423,7 @@ exports.getPayoutRequests = async (req, res) => {
           const completedClasses = await ClassSchedule.find({ tutor: tutorId, status: "Completed" });
           const classEarnings = completedClasses.length * (profile ? profile.fee || profile.hourlyRate || 500 : 500);
 
-          const creditTxns = await Transaction.find({ user: tutorId, status: "Completed", type: { $in: ["Credit", "Tuition Fee Payment", "Wallet Topup"] } });
+          const creditTxns = await Transaction.find({ user: tutorId, status: "Completed", type: { $in: ["Credit", "Tuition Fee Payment", "Wallet Topup"] }, isTestMode: { $ne: true } });
           const creditEarnings = creditTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
 
           const grossEarnings = classEarnings + creditEarnings + userWallet;

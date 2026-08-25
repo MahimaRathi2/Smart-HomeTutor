@@ -72,6 +72,193 @@ exports.getTutorProfile = async (req, res) => {
   }
 };
 
+exports.updateTutorProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    let tutorProfile = await TutorProfile.findOne({ user: userId });
+
+    if (!tutorProfile) {
+      const user = await User.findById(userId);
+      if (user && user.email) {
+        tutorProfile = await TutorProfile.findOne({ email: user.email.toLowerCase() });
+        if (tutorProfile && !tutorProfile.user) {
+          tutorProfile.user = userId;
+          await tutorProfile.save();
+        }
+      }
+    }
+
+    if (!tutorProfile) {
+      return res.status(404).json({ success: false, message: "Tutor profile not found. Please complete tutor application first." });
+    }
+
+    const {
+      firstName,
+      lastName,
+      fullName,
+      gender,
+      dob,
+      mobile,
+      whatsapp,
+      email,
+      alternateContact,
+      currentAddress,
+      city,
+      state,
+      pincode,
+      teachingArea,
+      preferredRadius,
+      highestQualification,
+      degreeName,
+      collegeUniversity,
+      passingYear,
+      specialization,
+      additionalQualifications,
+      experienceType,
+      totalExperience,
+      previousInstitute,
+      experienceDuration,
+      classesYouTeach,
+      board,
+      subjectsYouTeach,
+      classType,
+      teachingMethod,
+      studentLevel,
+      teachingMode,
+      preferredTeachingAreas,
+      maxTravelDistance,
+      preferredLocation,
+      onlinePlatform,
+      availableDays,
+      startTime,
+      endTime,
+      expectedFee,
+      feeType,
+      negotiable,
+      additionalFeeNotes,
+      qualification,
+      experience,
+      subjects,
+      classes,
+      fee,
+      location,
+      mode,
+      about,
+      serviceAreaRadius,
+      serviceAreas,
+      homeVisitsEnabled,
+      language,
+    } = req.body;
+
+    const parseArray = (input) => {
+      if (!input) return [];
+      if (Array.isArray(input)) return input.map((s) => String(s).trim()).filter(Boolean);
+      if (typeof input === "string") {
+        try {
+          const parsed = JSON.parse(input);
+          if (Array.isArray(parsed)) return parsed.map((s) => String(s).trim()).filter(Boolean);
+        } catch (e) {}
+        return input.split(",").map((s) => s.trim()).filter(Boolean);
+      }
+      return [];
+    };
+
+    const subjectsArray = parseArray(subjectsYouTeach || subjects);
+    const classesArray = parseArray(classesYouTeach || classes);
+    const boardArray = parseArray(board);
+    const classTypeArray = parseArray(classType);
+    const languageArray = parseArray(language);
+    const serviceAreasArray = parseArray(serviceAreas);
+    const availableDaysArray = parseArray(availableDays);
+
+    const nameToUpdate = (fullName || (firstName || lastName ? `${firstName || ""} ${lastName || ""}` : tutorProfile.fullName)).trim();
+    if (!nameToUpdate) {
+      return res.status(400).json({ success: false, message: "Full Name cannot be empty." });
+    }
+
+    if (fee !== undefined && (isNaN(Number(fee)) || Number(fee) < 0)) {
+      return res.status(400).json({ success: false, message: "Fee must be a valid non-negative number." });
+    }
+
+    if (subjectsArray.length === 0) {
+      return res.status(400).json({ success: false, message: "At least one Subject is required." });
+    }
+
+    if (mobile && !/^\d{10}$/.test(String(mobile).trim())) {
+      return res.status(400).json({ success: false, message: "Mobile number must contain exactly 10 digits." });
+    }
+
+    if (fullName || firstName || lastName) tutorProfile.fullName = nameToUpdate;
+    if (firstName !== undefined) tutorProfile.firstName = firstName.trim();
+    if (lastName !== undefined) tutorProfile.lastName = lastName.trim();
+    if (gender !== undefined) tutorProfile.gender = gender;
+    if (dob !== undefined) tutorProfile.dob = dob;
+    if (mobile !== undefined) tutorProfile.mobile = String(mobile).trim();
+    if (whatsapp !== undefined) tutorProfile.whatsapp = String(whatsapp).trim();
+    if (email !== undefined) tutorProfile.email = String(email).trim().toLowerCase();
+    if (alternateContact !== undefined) tutorProfile.alternateContact = String(alternateContact).trim();
+    if (currentAddress !== undefined) tutorProfile.currentAddress = String(currentAddress).trim();
+    if (city !== undefined) tutorProfile.city = String(city).trim();
+    if (state !== undefined) tutorProfile.state = String(state).trim();
+    if (pincode !== undefined) tutorProfile.pincode = String(pincode).trim();
+    if (teachingArea !== undefined) tutorProfile.teachingArea = String(teachingArea).trim();
+    if (preferredRadius !== undefined) tutorProfile.preferredRadius = String(preferredRadius).trim();
+
+    if (qualification !== undefined || highestQualification !== undefined) {
+      tutorProfile.qualification = qualification || highestQualification || tutorProfile.qualification;
+    }
+    if (highestQualification !== undefined) tutorProfile.highestQualification = highestQualification;
+    if (degreeName !== undefined) tutorProfile.degreeName = degreeName;
+    if (collegeUniversity !== undefined) tutorProfile.collegeUniversity = collegeUniversity;
+    if (passingYear !== undefined) tutorProfile.passingYear = passingYear;
+    if (experienceType !== undefined) tutorProfile.experienceType = experienceType;
+    if (totalExperience !== undefined) tutorProfile.totalExperience = String(totalExperience);
+    if (experience !== undefined) tutorProfile.experience = Number(experience) || 0;
+    if (previousInstitute !== undefined) tutorProfile.previousInstitute = previousInstitute;
+
+    tutorProfile.subjects = subjectsArray;
+    if (classesArray.length > 0) tutorProfile.classes = classesArray;
+    if (boardArray.length > 0) tutorProfile.board = boardArray;
+    if (classTypeArray.length > 0) tutorProfile.classType = classTypeArray;
+    if (languageArray.length > 0) tutorProfile.language = languageArray;
+    if (serviceAreasArray.length > 0) tutorProfile.serviceAreas = serviceAreasArray;
+    if (availableDaysArray.length > 0) tutorProfile.availableDays = availableDaysArray;
+
+    if (mode !== undefined || teachingMode !== undefined) {
+      tutorProfile.mode = mode || teachingMode || tutorProfile.mode;
+    }
+    if (location !== undefined) tutorProfile.location = location;
+    if (about !== undefined) tutorProfile.about = about;
+    if (startTime !== undefined) tutorProfile.startTime = startTime;
+    if (endTime !== undefined) tutorProfile.endTime = endTime;
+
+    if (fee !== undefined) tutorProfile.fee = Number(fee);
+    if (expectedFee !== undefined) tutorProfile.expectedFee = String(expectedFee);
+    if (feeType !== undefined) tutorProfile.feeType = feeType;
+    if (negotiable !== undefined) tutorProfile.negotiable = negotiable;
+    if (additionalFeeNotes !== undefined) tutorProfile.additionalFeeNotes = additionalFeeNotes;
+    if (homeVisitsEnabled !== undefined) tutorProfile.homeVisitsEnabled = Boolean(homeVisitsEnabled);
+    if (serviceAreaRadius !== undefined) tutorProfile.serviceAreaRadius = Number(serviceAreaRadius) || 10;
+
+    await tutorProfile.save();
+
+    if (nameToUpdate) {
+      await User.findByIdAndUpdate(userId, { name: nameToUpdate });
+    }
+
+    await logUserActivity(userId, `Updated tutor profile teaching details (${subjectsArray.join(", ")})`, req.ip);
+
+    return res.status(200).json({
+      success: true,
+      message: "Tutor profile updated successfully!",
+      tutorProfile,
+    });
+  } catch (error) {
+    console.error("Update Tutor Profile Error:", error);
+    return res.status(500).json({ success: false, message: "Server Error updating profile." });
+  }
+};
+
 exports.createTutorProfile = async (req, res) => {
   try {
     const {

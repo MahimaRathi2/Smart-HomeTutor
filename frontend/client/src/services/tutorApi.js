@@ -11,10 +11,20 @@ export const tutorApi = {
     return res.json();
   },
 
-  // Save / Update tutor profile
+  // Save / Create tutor profile
   async saveTutorProfile(profileData) {
     const res = await fetch('/api/tutor/profile', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(profileData)
+    });
+    return res.json();
+  },
+
+  // Update existing tutor profile (PUT)
+  async updateTutorProfile(profileData) {
+    const res = await fetch('/api/tutor/profile', {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(profileData)
     });

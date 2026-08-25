@@ -35,8 +35,9 @@ router.get("/dashboard-stats", requireAuth, authorizeRole("student"), studentCon
 router.get("/study-materials", requireAuth, authorizeRole("student"), studentController.getStudentStudyMaterials);
 router.get("/study-notes", requireAuth, authorizeRole("student"), studentController.getStudentStudyNotes);
 
-// Recipient-Specific Student Homework Endpoints
+// Recipient-Specific Student Homework & Fee Endpoints
 router.get("/my-tutors", requireAuth, authorizeRole("student"), studentController.getMyTutors);
+router.get("/tutor-fee-summary", requireAuth, authorizeRole("student"), studentController.getTutorFeeSummary);
 router.post("/submit-homework", requireAuth, authorizeRole("student"), tutorDocUpload.single("file"), studentController.submitHomework);
 router.get("/submitted-homework", requireAuth, authorizeRole("student"), studentController.getStudentSubmittedHomework);
 

@@ -106,6 +106,24 @@ export const adminApi = {
     return res.json();
   },
 
+  async getPaymentHistory(params = {}) {
+    const cleanParams = {};
+    Object.keys(params).forEach((key) => {
+      const val = params[key];
+      if (val !== undefined && val !== null && val !== '') {
+        if (key === 'status' && String(val).toLowerCase() === 'all') {
+          return;
+        }
+        cleanParams[key] = val;
+      }
+    });
+
+    const query = new URLSearchParams(cleanParams).toString();
+    const url = `/api/admin/payments${query ? `?${query}` : ''}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    return res.json();
+  },
+
   async getPayoutRequests() {
     const res = await fetch('/api/admin/payout-requests', { headers: { Accept: 'application/json' } });
     return res.json();
@@ -191,10 +209,16 @@ export const adminApi = {
     return res.json();
   },
 
-  async resolveComplaint(id) {
+  async getAllComplaints() {
+    const res = await fetch('/api/admin/complaints', { headers: { Accept: 'application/json' } });
+    return res.json();
+  },
+
+  async resolveComplaint(id, payload = {}) {
     const res = await fetch(`/api/admin/complaints/${id}/resolve`, {
       method: 'PATCH',
-      headers: { Accept: 'application/json' }
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
     });
     return res.json();
   },

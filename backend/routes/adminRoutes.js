@@ -14,6 +14,7 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/adminController");
+const paymentController = require("../controllers/paymentController");
 const { requireAuth, authorizeRole } = require("../middleware/authMiddleware");
 const blogCoverUpload = require("../utils/blogUploadMiddleware");
 
@@ -51,6 +52,7 @@ router.post("/blogs/upload-cover", blogCoverUpload, adminController.uploadBlogCo
 router.put("/blogs/:id", adminController.updateBlog);
 router.patch("/blogs/:id/publish", adminController.togglePublishBlog);
 router.delete("/blogs/:id", adminController.deleteBlog);
+router.get("/complaints", adminController.getAllComplaints);
 router.patch("/complaints/:id/resolve", adminController.resolveComplaint);
 router.get("/export-pdf-report", adminController.exportPdfReport);
 
@@ -62,6 +64,7 @@ router.delete("/subjects/:id", adminController.deleteSubject);
 
 // Finance & Platform Escrow Revenue Log Route
 router.get("/finance-revenue", adminController.getFinanceRevenue);
+router.get("/payments", paymentController.getAdminPaymentHistory);
 
 // Certificate Approval & Issuance System Routes
 router.get("/certificate-requests", adminController.getCertificateRequests);

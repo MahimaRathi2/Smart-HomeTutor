@@ -1,4 +1,19 @@
 import React from 'react';
+import {
+  GraduationCapIcon,
+  BriefcaseIcon,
+  BookOpenIcon,
+  SchoolIcon,
+  MapPinIcon,
+  CompassIcon,
+  MonitorIcon,
+  HouseIcon,
+  IndianRupeeIcon,
+  StarIcon,
+  MapPinnedIcon,
+  UserIcon,
+  CalendarDaysIcon
+} from '../common/ReactIcons';
 
 export const TutorAbout = ({ tutor = {}, onBookClick }) => {
   const lat = tutor.coordinates && tutor.coordinates.lat ? tutor.coordinates.lat : 28.6139;
@@ -7,81 +22,158 @@ export const TutorAbout = ({ tutor = {}, onBookClick }) => {
 
   const subjectsStr = Array.isArray(tutor.subjects) ? tutor.subjects.join(', ') : tutor.subjects || 'General';
   const classesStr = Array.isArray(tutor.classes) ? tutor.classes.join(', ') : tutor.classes || 'All Grades';
+  const rating = tutor.rating || 5.0;
+  const totalReviews = tutor.totalReviews || 0;
 
   return (
     <div>
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Qualification:</strong> {tutor.qualification || tutor.highestQualification || 'N/A'}
-      </p>
+      {/* 2-COLUMN ATTRIBUTE GRID CARDS */}
+      <div className="tutor-grid-container">
+        
+        {/* QUALIFICATION */}
+        <div className="tutor-info-card-item">
+          <div className="tutor-icon-bubble blue">
+            <GraduationCapIcon size={20} color="#0284c7" />
+          </div>
+          <div className="tutor-info-content">
+            <span className="tutor-info-label">Qualification</span>
+            <span className="tutor-info-value">
+              {tutor.qualification || tutor.highestQualification || 'N/A'}
+            </span>
+          </div>
+        </div>
 
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Experience:</strong> {tutor.experience || tutor.totalExperience || 0} Years
-      </p>
+        {/* EXPERIENCE */}
+        <div className="tutor-info-card-item">
+          <div className="tutor-icon-bubble purple">
+            <BriefcaseIcon size={20} color="#9333ea" />
+          </div>
+          <div className="tutor-info-content">
+            <span className="tutor-info-label">Experience</span>
+            <span className="tutor-info-value">
+              {tutor.experience || tutor.totalExperience || 0} Years
+            </span>
+          </div>
+        </div>
 
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Subjects:</strong> {subjectsStr}
-      </p>
+        {/* SUBJECTS */}
+        <div className="tutor-info-card-item">
+          <div className="tutor-icon-bubble emerald">
+            <BookOpenIcon size={20} color="#059669" />
+          </div>
+          <div className="tutor-info-content">
+            <span className="tutor-info-label">Subjects</span>
+            <span className="tutor-info-value">{subjectsStr}</span>
+          </div>
+        </div>
 
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Classes:</strong> {classesStr}
-      </p>
+        {/* CLASSES */}
+        <div className="tutor-info-card-item">
+          <div className="tutor-icon-bubble amber">
+            <SchoolIcon size={20} color="#d97706" />
+          </div>
+          <div className="tutor-info-content">
+            <span className="tutor-info-label">Classes</span>
+            <span className="tutor-info-value">{classesStr}</span>
+          </div>
+        </div>
 
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Location / City:</strong> {tutor.location || tutor.city || 'N/A'}
-      </p>
+        {/* LOCATION / CITY */}
+        <div className="tutor-info-card-item">
+          <div className="tutor-icon-bubble red">
+            <MapPinIcon size={20} color="#dc2626" />
+          </div>
+          <div className="tutor-info-content">
+            <span className="tutor-info-label">Location / City</span>
+            <span className="tutor-info-value">
+              {tutor.location || tutor.city || 'N/A'}
+            </span>
+          </div>
+        </div>
 
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Service Radius:</strong> {tutor.serviceAreaRadius || 10} km
-      </p>
+        {/* SERVICE RADIUS */}
+        <div className="tutor-info-card-item">
+          <div className="tutor-icon-bubble teal">
+            <CompassIcon size={20} color="#0d9488" />
+          </div>
+          <div className="tutor-info-content">
+            <span className="tutor-info-label">Service Radius</span>
+            <span className="tutor-info-value">
+              {tutor.serviceAreaRadius || 10} km
+            </span>
+          </div>
+        </div>
 
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Home Visits:</strong> {tutor.homeVisitsEnabled ? 'Available for Home Tuition & Online' : 'Online Only'}
-      </p>
+        {/* TEACHING MODE */}
+        <div className="tutor-info-card-item">
+          <div className="tutor-icon-bubble indigo">
+            <MonitorIcon size={20} color="#4f46e5" />
+          </div>
+          <div className="tutor-info-content">
+            <span className="tutor-info-label">Teaching Mode</span>
+            <span className="tutor-info-value">
+              {tutor.mode || 'Online / Offline'}
+            </span>
+          </div>
+        </div>
 
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Teaching Mode:</strong> {tutor.mode || 'Online / Offline'}
-      </p>
+        {/* HOME VISITS */}
+        <div className="tutor-info-card-item">
+          <div className="tutor-icon-bubble cyan">
+            <HouseIcon size={20} color="#0891b2" />
+          </div>
+          <div className="tutor-info-content">
+            <span className="tutor-info-label">Home Visits</span>
+            <span className="tutor-info-value">
+              {tutor.homeVisitsEnabled ? 'Available for Home Tuition & Online' : 'Online Only'}
+            </span>
+          </div>
+        </div>
 
-      <p style={{ margin: '8px 0', fontSize: '15px', color: '#1e293b' }}>
-        <strong>Fee:</strong> ₹{tutor.fee || 0}/hr
-      </p>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 700, color: '#d97706', margin: '12px 0' }}>
-        <i className="fa-solid fa-star" style={{ color: '#f59e0b' }}></i>
-        <span>{tutor.rating || 5.0} Rating</span>
-        <span style={{ color: '#64748b', fontWeight: 600, fontSize: '13px' }}>
-          ({tutor.totalReviews || 0} Reviews)
-        </span>
       </div>
 
-      <div style={{ margin: '16px 0' }}>
+      {/* HIGHLIGHT BANNER: FEE, RATING & GOOGLE MAPS LINK */}
+      <div className="tutor-summary-banner">
+        <div className="tutor-summary-left">
+          <div className="tutor-summary-badge">
+            <IndianRupeeIcon size={16} color="#059669" />
+            <span>Fee: ₹{tutor.fee || 0}/hr</span>
+          </div>
+          <div className="tutor-summary-badge">
+            <StarIcon size={16} color="#f59e0b" fill="#f59e0b" />
+            <span>{rating} Rating ({totalReviews} Reviews)</span>
+          </div>
+        </div>
+
         <a
           href={mapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="dash-btn dash-btn-outline"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', textDecoration: 'none', color: 'var(--primary, #213547)' }}
+          className="tutor-gmaps-link"
         >
-          <i className="fa-solid fa-map-location-dot"></i> View Location on Google Maps
+          <MapPinnedIcon size={16} color="currentColor" /> View Location on Google Maps
         </a>
       </div>
 
-      <p style={{ marginTop: '20px', marginBottom: '6px', fontSize: '15px', fontWeight: 700, color: 'var(--primary, #213547)' }}>
-        About:
-      </p>
-      <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#334155', lineHeight: 1.6 }}>
-        {tutor.about || 'No detailed biography provided.'}
-      </p>
+      {/* ABOUT BIOGRAPHY CARD */}
+      <div className="tutor-about-card">
+        <h3 className="tutor-about-title">
+          <UserIcon size={18} color="var(--accent, #f59e0b)" /> About:
+        </h3>
+        <p className="tutor-about-text">
+          {tutor.about || 'No detailed biography provided.'}
+        </p>
+      </div>
 
-      <button
-        type="button"
-        id="bookTutorBtn"
-        className="dash-btn dash-btn-primary"
-        style={{ marginTop: '20px', fontSize: '14px', padding: '10px 24px' }}
-        onClick={onBookClick}
-      >
-        <i className="fa-solid fa-calendar-check" style={{ marginRight: '6px' }}></i> Book Demo Class
-      </button>
+      {/* BOOK DEMO CLASS CTA BUTTON */}
+      <div className="tutor-booking-cta-area">
+        <button
+          type="button"
+          id="bookTutorBtn"
+          className="tutor-book-btn"
+          onClick={onBookClick}
+        >
+          <CalendarDaysIcon size={18} color="#f59e0b" /> Book Demo Class
+        </button>
+      </div>
     </div>
   );
 };

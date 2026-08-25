@@ -101,16 +101,35 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
   };
 
   const handleActionClick = (e, url) => {
-    e.preventDefault();
+    if (e) e.stopPropagation();
+    if (e) e.preventDefault();
     if (!url) return;
     if (url.includes('tab=')) {
-      const tabParam = url.split('tab=')[1]?.split('&')[0];
+      let tabParam = url.split('tab=')[1]?.split('&')[0];
+      if (tabParam === 'finance' || tabParam === 'payments') {
+        tabParam = 'payment-history';
+      }
       if (tabParam && onSelectTab) {
         onSelectTab(tabParam);
         return;
       }
     }
     window.location.href = url;
+  };
+
+  const handleNotificationCardClick = (e, item) => {
+    if (!item.isRead && !item.read) {
+      handleMarkAsRead(item._id);
+    }
+    if (item.type === 'payment' || (item.title && item.title.includes('Tuition Fee Payment'))) {
+      if (onSelectTab) {
+        onSelectTab('payment-history');
+        return;
+      }
+    }
+    if (item.actionUrl) {
+      handleActionClick(e, item.actionUrl);
+    }
   };
 
   // Filter & Search Logic
@@ -342,13 +361,15 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
             else if (item.type === 'verification') actionText = 'View Application';
             else if (item.type === 'dispute') actionText = 'View Complaint';
             else if (item.type === 'enquiry') actionText = 'View Enquiry';
-            else if (item.type === 'payment') actionText = 'View Payout';
+            else if (item.type === 'payment') actionText = 'View Payment History';
 
             return (
               <div
                 key={item._id}
                 className="dash-card"
+                onClick={(e) => handleNotificationCardClick(e, item)}
                 style={{
+                  cursor: 'pointer',
                   background: isUnread ? '#f8fafc' : '#ffffff',
                   borderLeft: isUnread ? '4px solid #0284c7' : '1px solid #e2e8f0',
                   padding: '16px 20px',
@@ -403,9 +424,61 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
                 </div>
 
                 {/* BODY MESSAGE */}
-                <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#334155', lineHeight: '1.6' }}>
-                  {item.message}
-                </p>
+                {(() => {
+                  const trimmed = (item.message || '').trim();
+                  const blocks = trimmed.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+                  const lines = trimmed.split(/\n/).map((l) => l.trim()).filter(Boolean);
+                  const hasMore = blocks.length > 1 || lines.length > 1;
+                  const previewText = blocks.length > 1 ? blocks[0] : (lines.length > 1 ? lines[0] : trimmed);
+
+                  return (
+                    <div>
+                      <div
+                        className="announcement-content-body"
+                        style={{
+                          height: 'auto',
+                          maxHeight: 'none',
+                          overflow: 'visible',
+                          overflowWrap: 'anywhere',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'pre-wrap',
+                          fontSize: '13px',
+                          color: '#334155',
+                          lineHeight: '1.6',
+                          margin: '0 0 8px 0',
+                        }}
+                      >
+                        {previewText}
+                      </div>
+
+                      {hasMore && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onSelectTab) onSelectTab('overview');
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              color: '#0284c7',
+                              fontWeight: '700',
+                              fontSize: '12.5px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            Read More <i className="fa-solid fa-arrow-right" style={{ fontSize: '11px' }}></i>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* BOTTOM ROW: Action Button & Item Actions */}
                 <div
@@ -433,7 +506,10 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {isUnread && (
                       <button
-                        onClick={() => handleMarkAsRead(item._id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkAsRead(item._id);
+                        }}
                         style={{
                           background: 'none',
                           border: 'none',
@@ -449,7 +525,10 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
                     )}
 
                     <button
-                      onClick={() => handleDeleteNotification(item._id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteNotification(item._id);
+                      }}
                       style={{
                         background: 'none',
                         border: 'none',

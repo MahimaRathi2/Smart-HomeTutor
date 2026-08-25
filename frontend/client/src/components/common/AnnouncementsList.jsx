@@ -269,7 +269,7 @@ export const AnnouncementsList = ({ role = 'student' }) => {
         );
       })}
 
-      {/* FULL ANNOUNCEMENT POPUP MODAL */}
+      {/* FULL ANNOUNCEMENT POPUP MODAL (PERFECTLY CENTERED IN VIEWPORT) */}
       {selectedAnnouncement && (
         <div
           className="announcement-modal-overlay"
@@ -278,32 +278,37 @@ export const AnnouncementsList = ({ role = 'student' }) => {
             position: 'fixed',
             top: 0,
             left: 0,
-            right: 0,
-            bottom: 0,
+            width: '100vw',
+            height: '100vh',
             background: 'rgba(15, 23, 42, 0.65)',
             backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justify: 'center',
+            WebkitBackdropFilter: 'blur(4px)',
             zIndex: 999999,
-            padding: '20px',
-            boxSizing: 'border-box',
+            margin: 0,
+            padding: 0,
           }}
         >
           <div
             className="announcement-modal-card"
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#ffffff',
-              borderRadius: '16px',
-              width: '100%',
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '90%',
               maxWidth: '680px',
               maxHeight: '85vh',
+              background: '#ffffff',
+              borderRadius: '16px',
               display: 'flex',
               flexDirection: 'column',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               border: '1px solid #fde68a',
               overflow: 'hidden',
+              zIndex: 1000000,
+              margin: 0,
+              boxSizing: 'border-box',
             }}
           >
             {/* MODAL HEADER */}
@@ -316,6 +321,7 @@ export const AnnouncementsList = ({ role = 'student' }) => {
                 justify: 'space-between',
                 alignItems: 'flex-start',
                 gap: '16px',
+                flexShrink: 0,
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -375,6 +381,7 @@ export const AnnouncementsList = ({ role = 'student' }) => {
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 flex: 1,
+                maxHeight: 'calc(85vh - 130px)',
                 fontSize: '14.5px',
                 color: '#334155',
                 lineHeight: '1.7',
@@ -394,6 +401,7 @@ export const AnnouncementsList = ({ role = 'student' }) => {
                 borderTop: '1px solid #e2e8f0',
                 display: 'flex',
                 justify: 'flex-end',
+                flexShrink: 0,
               }}
             >
               <button
@@ -418,6 +426,3 @@ export const AnnouncementsList = ({ role = 'student' }) => {
     </div>
   );
 };
-
-
-

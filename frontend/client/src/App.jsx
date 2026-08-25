@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { HomePage } from './pages/public/HomePage';
@@ -26,6 +26,88 @@ import { SocketCallListener } from './components/home/SocketCallListener';
 import { CustomPopup } from './components/common/CustomPopup';
 
 export const App = () => {
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    const handleWheel = (e) => {
+      // Intercept only when horizontal scroll delta is dominant over vertical scroll delta
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        let target = e.target;
+        let isInternalScroll = false;
+
+        // Check if the horizontal gesture is inside a horizontally scrollable container
+        while (target && target !== document.body && target !== document.documentElement) {
+          const style = window.getComputedStyle(target);
+          const overflowX = style.getPropertyValue('overflow-x');
+          if ((overflowX === 'auto' || overflowX === 'scroll') && target.scrollWidth > target.clientWidth) {
+            const canScrollLeft = e.deltaX < 0 && target.scrollLeft > 0;
+            const canScrollRight = e.deltaX > 0 && target.scrollLeft + target.clientWidth < target.scrollWidth;
+            if (canScrollLeft || canScrollRight) {
+              isInternalScroll = true;
+              break;
+            }
+          }
+          target = target.parentElement;
+        }
+
+        // Prevent browser back/forward history navigation if not scrolling an internal container
+        if (!isInternalScroll) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    const handleTouchStart = (e) => {
+      if (e.touches && e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches && e.touches.length === 1) {
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - touchStartX;
+        const diffY = currentY - touchStartY;
+
+        // Intercept only if horizontal gesture is dominant
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+          let target = e.target;
+          let isInternalScroll = false;
+
+          while (target && target !== document.body && target !== document.documentElement) {
+            const style = window.getComputedStyle(target);
+            const overflowX = style.getPropertyValue('overflow-x');
+            if ((overflowX === 'auto' || overflowX === 'scroll') && target.scrollWidth > target.clientWidth) {
+              const canScrollLeft = diffX > 0 && target.scrollLeft > 0;
+              const canScrollRight = diffX < 0 && target.scrollLeft + target.clientWidth < target.scrollWidth;
+              if (canScrollLeft || canScrollRight) {
+                isInternalScroll = true;
+                break;
+              }
+            }
+            target = target.parentElement;
+          }
+
+          if (!isInternalScroll) {
+            e.preventDefault();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
   return (
     <AuthProvider>
       <BrowserRouter>

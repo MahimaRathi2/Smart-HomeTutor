@@ -102,6 +102,12 @@ export const studentApi = {
     return await res.json();
   },
 
+  // Get Tutor Fee Summary
+  getTutorFeeSummary: async (tutorId) => {
+    const res = await fetch(`/api/student/tutor-fee-summary?tutorId=${tutorId}`);
+    return await res.json();
+  },
+
   // Submit Recipient-Specific Homework
   submitHomework: async (formData) => {
     const res = await fetch('/api/student/submit-homework', {
@@ -147,6 +153,24 @@ export const studentApi = {
 
   verifyPayment: async (payload) => {
     const res = await fetch('/api/payment/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  },
+
+  recordPaymentFail: async (payload) => {
+    const res = await fetch('/api/payment/fail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  },
+
+  recordPaymentCancel: async (payload) => {
+    const res = await fetch('/api/payment/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

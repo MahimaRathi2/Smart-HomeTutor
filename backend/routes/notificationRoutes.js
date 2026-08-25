@@ -17,5 +17,6 @@ router.post("/subscribe", requireAuth, notificationController.savePushSubscripti
 router.patch("/read-all", requireAuth, notificationController.markAllAsRead);
 router.patch("/:id/read", requireAuth, notificationController.markAsRead);
 router.delete("/:id", requireAuth, notificationController.deleteNotification);
+router.post("/run-fee-scheduler", notificationController.runFeeScheduler);
 
 module.exports = router;

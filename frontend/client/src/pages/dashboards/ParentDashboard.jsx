@@ -10,6 +10,7 @@ import { ChildSubjectProgress } from '../../components/dashboard/parent/ChildSub
 import { ParentInvoices } from '../../components/dashboard/parent/ParentInvoices';
 import { ParentNotificationsTab } from '../../components/dashboard/parent/ParentNotificationsTab';
 import { ParentChatTab } from '../../components/dashboard/parent/ParentChatTab';
+import { UserComplaintsTab } from '../../components/common/UserComplaintsTab';
 import { AddChildModal } from '../../components/dashboard/parent/AddChildModal';
 import { ParentCertificatesModal } from '../../components/dashboard/parent/ParentCertificatesModal';
 
@@ -21,6 +22,7 @@ const PARENT_VALID_TABS = [
   'search-tutors',
   'invoices',
   'chat',
+  'complaints',
 ];
 
 export const ParentDashboard = () => {
@@ -229,7 +231,7 @@ export const ParentDashboard = () => {
           {/* TAB 2: NOTIFICATIONS */}
           {activeTab === 'notifications' && (
             <div className="dash-tab-content" style={{ display: 'block', marginTop: '24px' }}>
-              <ParentNotificationsTab onUnreadChange={(cnt) => setUnreadNotificationsCount(cnt)} />
+              <ParentNotificationsTab onUnreadChange={(cnt) => setUnreadNotificationsCount(cnt)} onSelectTab={setActiveTab} />
             </div>
           )}
 
@@ -244,6 +246,13 @@ export const ParentDashboard = () => {
           {activeTab === 'chat' && (
             <div className="dash-tab-content" style={{ display: 'block', marginTop: '24px' }}>
               <ParentChatTab assignedTutors={assignedTutors} />
+            </div>
+          )}
+
+          {/* TAB 5: COMPLAINTS & SUPPORT */}
+          {activeTab === 'complaints' && (
+            <div className="dash-tab-content" style={{ display: 'block', marginTop: '24px' }}>
+              <UserComplaintsTab roleName="Parent" />
             </div>
           )}
         </main>

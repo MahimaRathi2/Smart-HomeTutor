@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const TutorHeaderBar = ({ onRequestPayout, onRequestCertificate, isApproved = true }) => {
+export const TutorHeaderBar = ({ onRequestPayout, onRequestCertificate, onEditProfile, isApproved = true }) => {
   return (
     <div className="dashboard-header-bar">
       <div className="dashboard-title">
@@ -8,6 +8,14 @@ export const TutorHeaderBar = ({ onRequestPayout, onRequestCertificate, isApprov
         <p>Manage your teaching schedule, accept booking requests, review student attendance, and request payouts.</p>
       </div>
       <div className="dashboard-actions" style={{ display: 'flex', gap: '10px' }}>
+        <button
+          type="button"
+          className="dash-btn dash-btn-outline"
+          onClick={onEditProfile}
+          title="Edit your subjects, rates, qualifications, and profile details"
+        >
+          <i className="fa-solid fa-user-pen"></i> Edit Profile
+        </button>
         <button
           type="button"
           className="dash-btn dash-btn-primary"

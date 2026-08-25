@@ -51,6 +51,9 @@ initVideoCallSocket(io);
 
 const onlineUsers = new Map();
 
+app.set("io", io);
+app.set("onlineUsers", onlineUsers);
+
 io.on("connection", (socket) => {
   console.log("🟢 User Connected:", socket.id);
 
@@ -185,6 +188,9 @@ app.use((req, res, next) => {
 
 // Authentication API & Action Routes
 const announcementRoutes = require("./routes/announcementRoutes");
+const attendanceRoutes = require("./routes/attendanceRoutes");
+const reportRoutes = require("./routes/reportRoutes");
+const { initReportScheduler } = require("./services/reportScheduler");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/student", studentRoutes);
@@ -196,12 +202,17 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/parent", parentRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/schedule", scheduleRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/reports", reportRoutes);
 app.use("/api/coupon", couponRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/content", contentRoutes);
+
+// Start Automated 30-Day Progress Report Background Scheduler Service
+initReportScheduler();
 
 // Public Academic Subjects & Boards Catalog Endpoint
 const adminController = require("./controllers/adminController");
@@ -331,11 +342,13 @@ app.use((req, res) => {
   res.status(404).render("index");
 });
 const seedAdminAccount = require("./utils/seedAdmin");
+const { initFeeReminderScheduler } = require("./utils/feeReminderScheduler");
 
 const startServer = async () => {
   try {
     await connectDB();
     await seedAdminAccount();
+    initFeeReminderScheduler(app);
 
     server.listen(PORT, () => {
       console.log(`✅ Server running at http://localhost:${PORT}`);

@@ -9,9 +9,11 @@ import { TutorRequestsTab } from '../../components/tutor/tabs/TutorRequestsTab';
 import { TutorHomeworkTab } from '../../components/tutor/tabs/TutorHomeworkTab';
 import { TutorChatTab } from '../../components/tutor/tabs/TutorChatTab';
 import { TutorRatesTab } from '../../components/tutor/tabs/TutorRatesTab';
+import { UserComplaintsTab } from '../../components/common/UserComplaintsTab';
 import { TutorApplicationForm } from '../../components/tutor/TutorApplicationForm';
 import { PayoutModal } from '../../components/tutor/modals/PayoutModal';
 import { RequestCertificateModal } from '../../components/tutor/modals/RequestCertificateModal';
+import { EditTutorProfileModal } from '../../components/tutor/modals/EditTutorProfileModal';
 
 import { NotificationsTab } from '../../components/common/NotificationsTab';
 import { useDashboardTab } from '../../hooks/useDashboardTab';
@@ -24,6 +26,8 @@ const TUTOR_VALID_TABS = [
   'assignments',
   'chat',
   'rates-availability',
+  'edit-profile',
+  'complaints',
 ];
 
 export const TutorDashboardPage = () => {
@@ -41,6 +45,7 @@ export const TutorDashboardPage = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
   const fetchUnreadNotifications = async () => {
     try {
@@ -147,7 +152,7 @@ export const TutorDashboardPage = () => {
   const renderContent = () => {
     // 1. Notifications Tab is ALWAYS accessible in all statuses
     if (activeTab === 'notifications') {
-      return <NotificationsTab userRole="tutor" />;
+      return <NotificationsTab userRole="tutor" onSelectTab={setActiveTab} />;
     }
 
     // 2. Application Form mode when requested by Tutor
@@ -279,6 +284,10 @@ export const TutorDashboardPage = () => {
         {activeTab === 'rates-availability' && (
           <TutorRatesTab />
         )}
+
+        {activeTab === 'complaints' && (
+          <UserComplaintsTab roleName="Tutor" />
+        )}
       </>
     );
   };
@@ -290,7 +299,11 @@ export const TutorDashboardPage = () => {
         activeTab={activeTab}
         onSelectTab={(tabId) => {
           setShowApplicationForm(false);
-          setActiveTab(tabId);
+          if (tabId === 'edit-profile') {
+            setIsEditProfileModalOpen(true);
+          } else {
+            setActiveTab(tabId);
+          }
         }}
         tutorName={tutorDisplayName}
         tutorEmail={tutorEmail}
@@ -302,6 +315,7 @@ export const TutorDashboardPage = () => {
       <main className="dashboard-main">
         <TutorHeaderBar
           isApproved={tutorStatus === 'approved'}
+          onEditProfile={() => setIsEditProfileModalOpen(true)}
           onRequestPayout={() => setIsPayoutModalOpen(true)}
           onRequestCertificate={() => setIsCertModalOpen(true)}
         />
@@ -316,6 +330,16 @@ export const TutorDashboardPage = () => {
           renderContent()
         )}
       </main>
+
+      {/* EDIT PROFILE MODAL */}
+      <EditTutorProfileModal
+        isOpen={isEditProfileModalOpen}
+        onClose={() => setIsEditProfileModalOpen(false)}
+        tutorProfile={tutorProfile}
+        onSuccess={() => {
+          loadAllData();
+        }}
+      />
 
       {/* PAYOUT REQUEST MODAL */}
       <PayoutModal

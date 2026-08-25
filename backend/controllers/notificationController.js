@@ -166,3 +166,31 @@ exports.savePushSubscription = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error saving push subscription." });
   }
 };
+
+/**
+ * Run 30-day fee reminder scheduler manually or for testing with mock dates
+ */
+exports.runFeeScheduler = async (req, res) => {
+  try {
+    const { mockDaysAhead, mockDate } = req.body || {};
+    let testNow = null;
+
+    if (mockDate) {
+      testNow = new Date(mockDate);
+    } else if (mockDaysAhead) {
+      testNow = new Date(Date.now() + Number(mockDaysAhead) * 24 * 60 * 60 * 1000);
+    }
+
+    const { checkAndSendFeeReminders } = require("../utils/feeReminderScheduler");
+    const result = await checkAndSendFeeReminders(req.app, testNow);
+
+    return res.status(200).json({
+      success: true,
+      message: "Fee reminder scheduler executed successfully.",
+      result,
+    });
+  } catch (err) {
+    console.error("Run Fee Scheduler Error:", err);
+    return res.status(500).json({ success: false, message: "Error running fee scheduler." });
+  }
+};

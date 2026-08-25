@@ -9,6 +9,7 @@ import { ClassesTab } from '../../components/student/tabs/ClassesTab';
 import { HomeworkTab } from '../../components/student/tabs/HomeworkTab';
 import { ChatTab } from '../../components/student/tabs/ChatTab';
 import { WalletTab } from '../../components/student/tabs/WalletTab';
+import { UserComplaintsTab } from '../../components/common/UserComplaintsTab';
 import { BookDemoModal } from '../../components/student/modals/BookDemoModal';
 import { ReviewModal } from '../../components/student/modals/ReviewModal';
 import { CertificatesModal } from '../../components/student/modals/CertificatesModal';
@@ -26,6 +27,7 @@ const STUDENT_VALID_TABS = [
   'learning',
   'chat',
   'payments',
+  'complaints',
 ];
 
 export const StudentDashboardPage = () => {
@@ -173,7 +175,7 @@ export const StudentDashboardPage = () => {
             )}
 
             {activeTab === 'notifications' && (
-              <NotificationsTab userRole="student" />
+              <NotificationsTab userRole="student" onSelectTab={setActiveTab} />
             )}
 
             {activeTab === 'search-tutors' && (
@@ -196,6 +198,10 @@ export const StudentDashboardPage = () => {
                 transactions={statsData ? statsData.transactions : []}
                 onWalletTopupSuccess={handleWalletTopupSuccess}
               />
+            )}
+
+            {activeTab === 'complaints' && (
+              <UserComplaintsTab roleName="Student" />
             )}
           </>
         )}

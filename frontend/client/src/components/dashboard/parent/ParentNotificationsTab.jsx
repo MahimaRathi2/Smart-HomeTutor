@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export const ParentNotificationsTab = ({ onUnreadChange }) => {
+export const ParentNotificationsTab = ({ onUnreadChange, onSelectTab }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -30,10 +30,16 @@ export const ParentNotificationsTab = ({ onUnreadChange }) => {
     }
   };
 
-  const markRead = async (id) => {
+  const markRead = async (id, e) => {
+    if (e) e.stopPropagation();
     try {
+      setNotifications((prev) => {
+        const updated = prev.map((n) => (n._id === id ? { ...n, isRead: true, read: true } : n));
+        const unreadCount = updated.filter((n) => !n.isRead && !n.read).length;
+        if (onUnreadChange) onUnreadChange(unreadCount);
+        return updated;
+      });
       await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
-      loadNotifications();
     } catch (err) {
       console.error('Mark notification read error:', err);
     }
@@ -41,20 +47,87 @@ export const ParentNotificationsTab = ({ onUnreadChange }) => {
 
   const markAllRead = async () => {
     try {
+      setNotifications((prev) => {
+        const updated = prev.map((n) => ({ ...n, isRead: true, read: true }));
+        if (onUnreadChange) onUnreadChange(0);
+        return updated;
+      });
       await fetch('/api/notifications/read-all', { method: 'PATCH' });
-      loadNotifications();
     } catch (err) {
       console.error('Mark all notifications read error:', err);
     }
   };
 
-  const deleteNotification = async (id) => {
+  const deleteNotification = async (id, e) => {
+    if (e) e.stopPropagation();
     try {
+      setNotifications((prev) => {
+        const updated = prev.filter((n) => n._id !== id);
+        const unreadCount = updated.filter((n) => !n.isRead && !n.read).length;
+        if (onUnreadChange) onUnreadChange(unreadCount);
+        return updated;
+      });
       await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
-      loadNotifications();
     } catch (err) {
       console.error('Delete notification error:', err);
     }
+  };
+
+  const handleNotificationCardClick = (e, n) => {
+    if (!n.isRead && !n.read) {
+      markRead(n._id);
+    }
+
+    if (n.actionUrl) {
+      if (n.actionUrl.includes('tab=')) {
+        const tabParam = n.actionUrl.split('tab=')[1]?.split('&')[0];
+        if (tabParam && typeof onSelectTab === 'function') {
+          onSelectTab(tabParam);
+          return;
+        }
+      }
+      window.location.href = n.actionUrl;
+    }
+  };
+
+  const handleReadMoreRedirect = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (typeof onSelectTab === 'function') {
+      onSelectTab('overview');
+    } else {
+      localStorage.setItem('parent_activeTab', 'overview');
+      window.dispatchEvent(new Event('storage'));
+    }
+  };
+
+  const parseNotificationPreview = (message = '') => {
+    const trimmed = message.trim();
+    if (!trimmed) return { previewText: '', hasMore: false };
+
+    const doubleNewlineBlocks = trimmed.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+
+    if (doubleNewlineBlocks.length > 1) {
+      return {
+        previewText: doubleNewlineBlocks[0],
+        hasMore: true,
+      };
+    }
+
+    const singleLines = trimmed.split(/\n/).map((l) => l.trim()).filter(Boolean);
+    if (singleLines.length > 1) {
+      return {
+        previewText: singleLines[0],
+        hasMore: true,
+      };
+    }
+
+    return {
+      previewText: trimmed,
+      hasMore: false,
+    };
   };
 
   return (
@@ -109,10 +182,14 @@ export const ParentNotificationsTab = ({ onUnreadChange }) => {
                 minute: '2-digit',
               });
 
+              const { previewText, hasMore } = parseNotificationPreview(n.message);
+
               return (
                 <div
                   key={n._id}
+                  onClick={(e) => handleNotificationCardClick(e, n)}
                   style={{
+                    cursor: 'pointer',
                     background: isUnread ? '#faf5ff' : '#ffffff',
                     border: isUnread ? '1px solid #e9d5ff' : '1px solid #e2e8f0',
                     borderLeft: isUnread ? '4px solid #7e22ce' : '1px solid #e2e8f0',
@@ -120,23 +197,38 @@ export const ParentNotificationsTab = ({ onUnreadChange }) => {
                     padding: '16px',
                     display: 'flex',
                     gap: '12px',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   <div
                     style={{
-                      width: '38px',
-                      height: '38px',
-                      borderRadius: '10px',
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
                       background: '#f3e8ff',
                       color: '#7e22ce',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '16px',
+                      fontSize: '18px',
                       flexShrink: 0,
+                      alignSelf: 'center',
                     }}
                   >
-                    <i className="fa-solid fa-bell"></i>
+                    <i
+                      className="fa-solid fa-bell"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1,
+                        margin: 0,
+                        padding: 0,
+                        width: '100%',
+                        height: '100%',
+                        textAlign: 'center',
+                      }}
+                    ></i>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -157,15 +249,47 @@ export const ParentNotificationsTab = ({ onUnreadChange }) => {
                         fontSize: '13px',
                         color: '#334155',
                         lineHeight: '1.5',
-                        margin: '0 0 10px 0',
+                        margin: '0 0 8px 0',
                       }}
                     >
-                      {n.message}
+                      {previewText}
                     </div>
+
+                    {hasMore && (
+                      <div style={{ marginBottom: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={handleReadMoreRedirect}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: '#7e22ce',
+                            fontWeight: '700',
+                            fontSize: '12.5px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          Read More <i className="fa-solid fa-arrow-right" style={{ fontSize: '11px' }}></i>
+                        </button>
+                      </div>
+                    )}
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       {n.actionUrl ? (
-                        <a href={n.actionUrl} className="dash-btn dash-btn-primary" style={{ background: '#7e22ce', fontSize: '11px', padding: '3px 10px' }}>
-                          View Details
+                        <a
+                          href={n.actionUrl}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleNotificationCardClick(e, n);
+                          }}
+                          className="dash-btn dash-btn-primary"
+                          style={{ background: '#7e22ce', fontSize: '11px', padding: '3px 10px' }}
+                        >
+                          {n.type === 'fee' || n.type === 'payment' ? 'Pay Now' : 'View Details'}
                         </a>
                       ) : (
                         <div></div>
@@ -174,7 +298,7 @@ export const ParentNotificationsTab = ({ onUnreadChange }) => {
                         {isUnread && (
                           <button
                             type="button"
-                            onClick={() => markRead(n._id)}
+                            onClick={(e) => markRead(n._id, e)}
                             style={{ background: 'none', border: 'none', color: '#7e22ce', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
                           >
                             <i className="fa-solid fa-check"></i> Mark Read
@@ -182,7 +306,7 @@ export const ParentNotificationsTab = ({ onUnreadChange }) => {
                         )}
                         <button
                           type="button"
-                          onClick={() => deleteNotification(n._id)}
+                          onClick={(e) => deleteNotification(n._id, e)}
                           style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer' }}
                         >
                           <i className="fa-solid fa-trash-can"></i>

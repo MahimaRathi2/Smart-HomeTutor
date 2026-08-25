@@ -41,7 +41,7 @@ const createNotification = async ({ userId, role, title, message, type = "system
     });
 
     // 1. Socket.IO Real-Time Notification
-    if (app) {
+    if (app && typeof app.get === 'function') {
       const io = app.get("io");
       const onlineUsers = app.get("onlineUsers");
       if (io && onlineUsers) {
@@ -134,7 +134,7 @@ const createAdminNotification = async ({
         createdNotifications.push(notif);
 
         // Real-Time Socket.IO Broadcast to Admin Room & Sockets
-        if (app) {
+        if (app && typeof app.get === 'function') {
           const io = app.get("io");
           if (io) {
             io.to("admin").emit("receiveNotification", notif);

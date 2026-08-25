@@ -1,10 +1,11 @@
 import React from 'react';
+import { StarIcon, MessageIcon, ClockIcon } from '../common/ReactIcons';
 
 export const TutorReviews = ({ reviews = [] }) => {
   return (
     <div style={{ marginTop: '36px', borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
-      <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary, #213547)', marginBottom: '16px' }}>
-        <i className="fa-solid fa-comments" style={{ color: '#0284c7', marginRight: '8px' }}></i>
+      <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary, #213547)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <MessageIcon size={20} color="#0284c7" />
         Student Ratings & Reviews ({reviews.length})
       </h3>
 
@@ -20,16 +21,21 @@ export const TutorReviews = ({ reviews = [] }) => {
               <div key={r._id || idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <strong style={{ color: '#0f172a', fontSize: '14px' }}>{studentName}</strong>
-                  <span style={{ color: '#f59e0b', fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ color: '#f59e0b', fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <i key={star} className={`fa-${star <= r.rating ? 'solid' : 'regular'} fa-star`}></i>
+                      <StarIcon
+                        key={star}
+                        size={14}
+                        color="#f59e0b"
+                        fill={star <= r.rating ? '#f59e0b' : 'none'}
+                      />
                     ))}
                     <span style={{ marginLeft: '4px' }}>{r.rating}.0</span>
                   </span>
                 </div>
                 <p style={{ margin: 0, fontSize: '13px', color: '#334155', lineHeight: 1.5 }}>{r.comment}</p>
-                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '8px' }}>
-                  <i className="fa-solid fa-clock"></i> {dateStr}
+                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
+                  <ClockIcon size={12} color="#94a3b8" /> {dateStr}
                 </span>
               </div>
             );
@@ -37,7 +43,9 @@ export const TutorReviews = ({ reviews = [] }) => {
         </div>
       ) : (
         <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', padding: '20px', borderRadius: '12px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-          <i className="fa-solid fa-comment-slash" style={{ fontSize: '24px', color: '#94a3b8', marginBottom: '8px' }}></i>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+            <MessageIcon size={24} color="#94a3b8" />
+          </div>
           <p style={{ margin: 0 }}>No student reviews submitted yet for this tutor.</p>
         </div>
       )}

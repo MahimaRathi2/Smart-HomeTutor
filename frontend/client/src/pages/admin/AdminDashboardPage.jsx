@@ -8,6 +8,7 @@ import { AdminUsersTab } from '../../components/admin/tabs/AdminUsersTab';
 import { AdminTutorVerificationsTab } from '../../components/admin/tabs/AdminTutorVerificationsTab';
 import { AdminCertificatesTab } from '../../components/admin/tabs/AdminCertificatesTab';
 import { AdminFinanceTab } from '../../components/admin/tabs/AdminFinanceTab';
+import { AdminPaymentHistoryTab } from '../../components/admin/tabs/AdminPaymentHistoryTab';
 import { AdminCatalogTab } from '../../components/admin/tabs/AdminCatalogTab';
 import { AdminDisputesTab } from '../../components/admin/tabs/AdminDisputesTab';
 import { AdminBlogsTab } from '../../components/admin/tabs/AdminBlogsTab';
@@ -28,6 +29,7 @@ const ADMIN_VALID_TABS = [
   'tutor-verifications',
   'certificates',
   'finance',
+  'payment-history',
   'catalog',
   'disputes',
   'blogs',
@@ -372,6 +374,10 @@ export const AdminDashboardPage = () => {
                 onRejectPayout={handleRejectPayout}
                 onExportPdf={handleExportPdf}
               />
+            )}
+
+            {activeTab === 'payment-history' && (
+              <AdminPaymentHistoryTab />
             )}
 
             {activeTab === 'catalog' && (

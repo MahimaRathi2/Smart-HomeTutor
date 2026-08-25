@@ -10,6 +10,7 @@ router.get("/all", tutorController.getAllTutors);
 router.get("/details/:id", tutorController.getTutorById);
 
 router.get("/profile", requireAuth, tutorController.getTutorProfile);
+router.put("/profile", requireAuth, authorizeRole("tutor"), tutorController.updateTutorProfile);
 // Public / Authenticated Endpoint: Tutor Application Form Submission (No requireApprovedTutor)
 router.post("/profile", tutorDocUpload, tutorController.createTutorProfile);
 

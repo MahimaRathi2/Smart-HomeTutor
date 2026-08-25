@@ -61,7 +61,7 @@ const classScheduleSchema = new mongoose.Schema(
     },
     attendance: {
       type: String,
-      enum: ["Pending", "Present", "Absent"],
+      enum: ["Pending", "Present", "Absent", "Late"],
       default: "Pending",
     },
   },

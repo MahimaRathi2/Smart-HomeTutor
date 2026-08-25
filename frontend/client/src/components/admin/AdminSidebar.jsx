@@ -49,6 +49,7 @@ export const AdminSidebar = ({
     { id: 'tutor-verifications', label: 'Tutor Verifications', icon: 'fa-shield-check' },
     { id: 'certificates', label: 'Certificate Approvals', icon: 'fa-award' },
     { id: 'finance', label: 'Finance & Revenue', icon: 'fa-sack-dollar' },
+    { id: 'payment-history', label: 'Payment History', icon: 'fa-clock-rotate-left' },
     { id: 'catalog', label: 'Catalog & Boards', icon: 'fa-layer-group' },
     { id: 'disputes', label: 'Disputes & Complaints', icon: 'fa-scale-balanced' },
     { id: 'blogs', label: 'Blog Articles', icon: 'fa-newspaper' },

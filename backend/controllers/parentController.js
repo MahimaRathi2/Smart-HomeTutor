@@ -198,7 +198,7 @@ exports.getParentDashboardStats = async (req, res) => {
 
     
     const totalClasses = schedules.length;
-    const attendedClasses = schedules.filter((s) => s.attendance === "Present").length;
+    const attendedClasses = schedules.filter((s) => ["Present", "Late"].includes(s.attendance)).length;
     const attendancePercentage = totalClasses > 0 ? Math.round((attendedClasses / totalClasses) * 100) : 0;
     const attendanceRate = totalClasses > 0 ? `${attendancePercentage}%` : "N/A";
 

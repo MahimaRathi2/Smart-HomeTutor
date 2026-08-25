@@ -191,4 +191,66 @@ const sendPasswordResetEmail = async ({ to, otp, name }) => {
   }
 };
 
-module.exports = { isValidEmailFormat, sendVerificationEmail, sendPasswordResetEmail };
+/**
+ * Send real email with PDF attachments via Nodemailer
+ * @param {Object} options
+ * @param {string} options.to
+ * @param {string} options.subject
+ * @param {string} options.html
+ * @param {string} [options.text]
+ * @param {Array}  [options.attachments]
+ */
+const sendEmailWithAttachment = async ({ to, subject, html, text, attachments = [] }) => {
+  const normalizedEmail = String(to).toLowerCase().trim();
+
+  if (!isValidEmailFormat(normalizedEmail)) {
+    throw new Error("Invalid recipient email address.");
+  }
+
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const user = process.env.SMTP_USER || "";
+  const pass = process.env.SMTP_PASS || "";
+  const from = process.env.EMAIL_FROM || `"Smart HomeTutor" <${user}>`;
+
+  const isPlaceholder = !user || !pass || pass === "app_password_placeholder";
+
+  if (isPlaceholder) {
+    console.warn(`⚠️ SMTP credentials placeholder detected. Simulating email delivery for ${normalizedEmail}. Subject: ${subject}`);
+    return { success: true, isDevConsole: true, messageId: "dev-console-report-email" };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false },
+  });
+
+  const mailOptions = {
+    from,
+    to: normalizedEmail,
+    subject,
+    text: text || "Please see the attached 30-day progress report PDF.",
+    html,
+    attachments,
+  };
+
+  try {
+    console.log(`📤 [EMAIL SERVICE] Sending report email with attachment to ${normalizedEmail}...`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ [EMAIL SERVICE SUCCESS] Report Email Sent via Nodemailer:", info.messageId || info.response);
+    return info;
+  } catch (err) {
+    console.error("❌ [EMAIL SERVICE ERROR] Email delivery failed:", err.message);
+    throw err;
+  }
+};
+
+module.exports = {
+  isValidEmailFormat,
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendEmailWithAttachment,
+};

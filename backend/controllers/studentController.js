@@ -4,6 +4,7 @@ const path = require("path");
 const User = require("../models/User");
 const BookingRequest = require("../models/BookingRequest");
 const TutorProfile = require("../models/TutorProfile");
+const Payment = require("../models/Payment");
 const Review = require("../models/Review");
 const Transaction = require("../models/Transaction");
 const StudyNote = require("../models/StudyNote");
@@ -478,10 +479,13 @@ exports.getStudentDashboardStats = async (req, res) => {
       .populate("tutor", "name email phone")
       .sort({ date: 1 });
 
-    const totalClasses = await ClassSchedule.countDocuments({ student: studentId });
-    const presentClasses = await ClassSchedule.countDocuments({ student: studentId, attendance: "Present" });
-    const absentClasses = await ClassSchedule.countDocuments({ student: studentId, attendance: "Absent" });
-    const attendancePercentage = totalClasses > 0 ? Math.round((presentClasses / totalClasses) * 100) : 100;
+    const { calculateStudentAttendanceSummary } = require("./attendanceController");
+    const attSummary = await calculateStudentAttendanceSummary(studentId);
+
+    const totalClasses = attSummary.totalClasses;
+    const presentClasses = attSummary.attendedClasses;
+    const absentClasses = attSummary.absentClasses;
+    const attendancePercentage = attSummary.attendancePercentage;
 
     const notes = await StudyNote.find({ student: studentId })
       .populate("tutor", "name email")
@@ -491,15 +495,12 @@ exports.getStudentDashboardStats = async (req, res) => {
       .populate("tutor", "name email")
       .sort({ createdAt: -1 });
 
-    
     const certificates = await Certificate.find({ student: studentId })
       .populate("tutor", "name")
       .sort({ createdAt: -1 });
 
-    
     const transactions = await Transaction.find({ user: studentId }).sort({ createdAt: -1 });
 
-   
     const completedClasses = await ClassSchedule.countDocuments({ student: studentId, status: "Completed" });
     const progressPercentage = totalClasses > 0 ? Math.min(100, Math.round((completedClasses / Math.max(totalClasses, 1)) * 100)) : 0;
 
@@ -532,6 +533,7 @@ exports.getStudentDashboardStats = async (req, res) => {
         certificatesCount: certificates.length,
         favoritesCount: student && student.favorites ? student.favorites.length : 0,
         referredCount,
+        subjectWiseAttendance: attSummary.subjectWise,
       },
       bookings,
       upcomingClasses,
@@ -543,6 +545,8 @@ exports.getStudentDashboardStats = async (req, res) => {
       referralCode: userReferralCode,
       referralEarnings: student ? (student.referralEarnings || 0) : 0,
       referredCount,
+      subjectWiseAttendance: attSummary.subjectWise,
+      attendanceLogs: attSummary.attendanceLogs,
     });
   } catch (err) {
     console.error("Get Student Dashboard Stats Error:", err);
@@ -735,14 +739,45 @@ exports.downloadCertificatePDF = async (req, res) => {
 exports.getReferrals = async (req, res) => {
   try {
     const student = await User.findById(req.user.id).select("referralCode referralEarnings name");
-    const referredUsers = await User.find({ referredBy: student.referralCode }).select("name email createdAt role");
+    let code = student ? student.referralCode : "";
+    if (student && !code) {
+      code = "REF-" + student._id.toString().slice(-6).toUpperCase();
+      student.referralCode = code;
+      await student.save();
+    }
+
+    const referredUsers = code
+      ? await User.find({ referredBy: code }).select("name email createdAt role referralRewardStatus")
+      : [];
+
+    const formattedUsers = referredUsers.map((u) => {
+      const isRewarded = u.referralRewardStatus === "Rewarded";
+      return {
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        createdAt: u.createdAt,
+        role: u.role,
+        referralRewardStatus: u.referralRewardStatus || "Pending",
+        studentReward: isRewarded ? 50 : 0,
+        referrerReward: isRewarded ? 100 : 0,
+        statusReason: isRewarded
+          ? "Completed first tuition payment"
+          : "Waiting for first successful tuition payment",
+      };
+    });
+
+    const protocol = req.protocol || "http";
+    const host = req.get("host") || "localhost:5173";
+    const referralLink = `${protocol}://${host}/signup?ref=${code}`;
 
     return res.status(200).json({
       success: true,
-      referralCode: student.referralCode || "",
-      referralEarnings: student.referralEarnings || 0,
+      referralCode: code || "",
+      referralLink: referralLink,
+      referralEarnings: student ? student.referralEarnings || 0 : 0,
       totalReferred: referredUsers.length,
-      referredUsers,
+      referredUsers: formattedUsers,
     });
   } catch (err) {
     console.error("Get Referrals Error:", err);
@@ -815,6 +850,122 @@ exports.getStudentClassSchedule = async (req, res) => {
   }
 };
 
+/**
+ * Calculates real-time total fee, paid amount, and payment left for a specific student-tutor pair
+ */
+const calculateTutorFeeSummary = async (studentId, tutorId) => {
+  try {
+    if (!studentId || !tutorId) {
+      return {
+        tutorId: tutorId || "",
+        tutorName: "Tutor",
+        subject: "",
+        totalTuitionFee: 0,
+        totalPaidAmount: 0,
+        paymentLeft: 0,
+        paymentStatus: "No Fee Configured",
+      };
+    }
+
+    // 1. Retrieve TutorProfile for tutor (by user ObjectId or profile ObjectId)
+    const profile = await TutorProfile.findOne({
+      $or: [{ user: tutorId }, { _id: tutorId }],
+    }).select("user fullName fee expectedFee feeType subjects specialization");
+
+    const tutorUser = await User.findById(tutorId).select("name email role");
+
+    let tutorName = tutorUser ? tutorUser.name : (profile ? profile.fullName : "Tutor");
+    let subjectStr = "";
+    if (profile && Array.isArray(profile.subjects) && profile.subjects.length > 0) {
+      subjectStr = profile.subjects.filter(Boolean).join(", ");
+    } else if (profile && profile.specialization) {
+      subjectStr = Array.isArray(profile.specialization)
+        ? profile.specialization.filter(Boolean).join(", ")
+        : String(profile.specialization);
+    }
+
+    // 2. Determine Total Tuition Fee
+    let totalTuitionFee = 0;
+    if (profile) {
+      const numericFee = Number(profile.fee) || 0;
+      const expectedFeeStr = profile.expectedFee ? String(profile.expectedFee) : "";
+      const parsedExpected = Number(expectedFeeStr.replace(/[^0-9]/g, "")) || 0;
+
+      if (numericFee >= 1000) {
+        totalTuitionFee = numericFee;
+      } else if (parsedExpected > 0) {
+        totalTuitionFee = parsedExpected;
+      } else if (numericFee > 0 && profile.feeType === "Per Hour") {
+        totalTuitionFee = numericFee * 10;
+      } else if (numericFee > 0) {
+        totalTuitionFee = numericFee;
+      }
+    }
+
+    // 3. Find all verified successful payments in Payment collection
+    const successfulPayments = await Payment.find({
+      user: studentId,
+      tutor: tutorId,
+      paymentStatus: { $in: ["Success", "Paid"] },
+      paymentType: { $in: ["Tuition Fee Payment", "Tuition Invoice Payment"] },
+    });
+
+    const totalPaidAmount = successfulPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    // 4. Calculate Payment Left & Status
+    const paymentLeft = Math.max(0, totalTuitionFee - totalPaidAmount);
+
+    let paymentStatus = "Unpaid";
+    if (totalTuitionFee === 0) {
+      paymentStatus = "No Fee Configured";
+    } else if (paymentLeft === 0) {
+      paymentStatus = "Paid";
+    } else if (totalPaidAmount > 0) {
+      paymentStatus = "Partial Payment";
+    }
+
+    return {
+      tutorId,
+      tutorName,
+      subject: subjectStr,
+      totalTuitionFee,
+      totalPaidAmount,
+      paymentLeft,
+      paymentStatus,
+    };
+  } catch (err) {
+    console.error("Calculate Tutor Fee Summary Error:", err);
+    return {
+      tutorId: tutorId || "",
+      tutorName: "Tutor",
+      subject: "",
+      totalTuitionFee: 0,
+      totalPaidAmount: 0,
+      paymentLeft: 0,
+      paymentStatus: "No Fee Configured",
+    };
+  }
+};
+
+exports.calculateTutorFeeSummary = calculateTutorFeeSummary;
+
+exports.getTutorFeeSummary = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const { tutorId } = req.query;
+
+    if (!tutorId) {
+      return res.status(400).json({ success: false, message: "Tutor ID is required." });
+    }
+
+    const summary = await calculateTutorFeeSummary(studentId, tutorId);
+    return res.status(200).json({ success: true, summary });
+  } catch (err) {
+    console.error("Get Tutor Fee Summary Controller Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 exports.getMyTutors = async (req, res) => {
   try {
     const studentId = req.user.id;
@@ -879,7 +1030,20 @@ exports.getMyTutors = async (req, res) => {
       }
     });
 
-    const tutors = Array.from(tutorsMap.values());
+    const rawTutors = Array.from(tutorsMap.values());
+    const tutors = await Promise.all(
+      rawTutors.map(async (t) => {
+        const feeSummary = await calculateTutorFeeSummary(studentId, t._id);
+        return {
+          ...t,
+          totalTuitionFee: feeSummary.totalTuitionFee,
+          totalPaidAmount: feeSummary.totalPaidAmount,
+          paymentLeft: feeSummary.paymentLeft,
+          paymentStatus: feeSummary.paymentStatus,
+        };
+      })
+    );
+
     return res.status(200).json({ success: true, tutors });
   } catch (err) {
     console.error("Get My Tutors Error:", err);

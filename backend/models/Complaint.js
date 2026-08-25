@@ -15,6 +15,11 @@ const complaintSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    category: {
+      type: String,
+      enum: ["General", "Tuition Fee / Payment", "Tutor Quality / Behavior", "Technical / App Bug", "Schedule / Class Issue", "Other"],
+      default: "General",
+    },
     subject: {
       type: String,
       required: true,
@@ -24,9 +29,19 @@ const complaintSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    relatedUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+      default: null,
+    },
+    adminReply: {
+      type: String,
+      default: "",
+    },
     status: {
       type: String,
-      enum: ["Pending", "In Progress", "Resolved"],
+      enum: ["Pending", "Under Review", "In Progress", "Resolved", "Rejected"],
       default: "Pending",
     },
   },

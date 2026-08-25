@@ -11,13 +11,40 @@ export const OverviewTab = ({
   onOpenReviewModal,
   onStartVideoCall,
 }) => {
-  const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const codeValue = referralCode || 'REF-B86925';
+  const referralLinkUrl = `${window.location.origin}/signup?ref=${codeValue}`;
 
   const copyReferralCode = () => {
-    const codeToCopy = referralCode || 'SMART100';
-    navigator.clipboard.writeText(codeToCopy);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(codeValue);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const copyReferralLink = () => {
+    navigator.clipboard.writeText(referralLinkUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const shareReferralLink = async () => {
+    const shareData = {
+      title: 'Join Smart HomeTutor',
+      text: `Join Smart HomeTutor using my referral code ${codeValue} and get a ₹50 Welcome Bonus on your first tuition payment!`,
+      url: referralLinkUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        copyReferralLink();
+      }
+    } else {
+      copyReferralLink();
+    }
   };
 
   const statItems = [
@@ -27,10 +54,12 @@ export const OverviewTab = ({
     { label: 'Attendance Rate', value: stats ? `${stats.attendancePercentage || 100}%` : '100%', sub: 'Overall attendance', icon: 'fa-chart-line', bg: '#f3e8ff', color: '#6b21a8' },
   ];
 
+  const progressPct = stats ? stats.progressPercentage || 0 : 0;
+
   return (
     <div className="dash-tab-content" style={{ display: 'block' }}>
       {/* STATS GRID */}
-      <div className="stats-grid">
+      <div className="stats-grid" style={{ marginBottom: '20px' }}>
         {statItems.map((st, idx) => (
           <div key={idx} className="stat-card">
             <div className="stat-info">
@@ -46,124 +75,280 @@ export const OverviewTab = ({
       </div>
 
       {/* CONTENT GRID */}
-      <div className="dash-content-grid">
-        <div>
-          {/* PLATFORM ANNOUNCEMENTS & NOTIFICATIONS */}
-          <div className="dash-card" style={{ marginBottom: '16px', borderLeft: '4px solid #f59e0b' }}>
-            <div className="dash-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f2a4a', fontWeight: '800' }}>
-                <i className="fa-solid fa-bullhorn" style={{ color: '#d97706', marginRight: '8px' }}></i> Platform Announcements & System Notices
+      <div className="dash-content-grid" style={{ gap: '20px' }}>
+        {/* COLUMN 1 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* PLATFORM ANNOUNCEMENTS */}
+          <div className="dash-card" style={{ borderLeft: '4px solid #f59e0b', padding: '18px 20px' }}>
+            <div className="dash-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f2a4a', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-bullhorn" style={{ color: '#d97706' }}></i> Platform Announcements & System Notices
               </h3>
               <span style={{ fontSize: '11px', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>
                 Live Updates
               </span>
             </div>
-
             <AnnouncementsList role="student" />
           </div>
 
-          {/* UPCOMING CLASSES */}
-          <div className="dash-card">
-            <div className="dash-card-header">
-              <h3><i className="fa-solid fa-video"></i> Upcoming Live Classes</h3>
+          {/* 1. UPCOMING LIVE CLASSES */}
+          <div className="dash-card" style={{ padding: '18px 20px' }}>
+            <div className="dash-card-header" style={{ marginBottom: '14px', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f2a4a', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-video" style={{ color: '#0284c7' }}></i> Upcoming Live Classes
+              </h3>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {upcomingClasses && upcomingClasses.length > 0 ? (
-                upcomingClasses.map((cls) => (
-                  <div key={cls._id} style={{ padding: '14px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            {upcomingClasses && upcomingClasses.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {upcomingClasses.map((cls) => (
+                  <div key={cls._id} style={{ padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '14px', color: '#0f2a4a' }}>{cls.subject || 'Live Class Session'}</h4>
+                      <h4 style={{ margin: 0, fontSize: '13.5px', color: '#0f2a4a', fontWeight: '700' }}>{cls.subject || 'Live Class Session'}</h4>
                       <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
                         Educator: {cls.tutor ? cls.tutor.name || 'Tutor' : 'Tutor'} &bull; {cls.time || 'Scheduled Time'}
                       </p>
                     </div>
-                    <button className="dash-btn dash-btn-primary" style={{ fontSize: '12px', padding: '6px 14px' }} onClick={onStartVideoCall}>
-                      <i className="fa-solid fa-video"></i> Join Class
+                    <button className="dash-btn dash-btn-primary" style={{ fontSize: '11.5px', padding: '5px 12px', borderRadius: '6px' }} onClick={onStartVideoCall}>
+                      <i className="fa-solid fa-video" style={{ marginRight: '5px' }}></i> Join Class
                     </button>
                   </div>
-                ))
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '14px 18px', borderRadius: '10px', border: '1px dashed #cbd5e1', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>
+                    <i className="fa-solid fa-calendar-xmark"></i>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#334155', display: 'block' }}>No upcoming live classes today</span>
+                    <span style={{ fontSize: '11.5px', color: '#64748b' }}>Book a tutor to schedule your next learning session.</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-outline"
+                  style={{ fontSize: '11.5px', padding: '5px 12px', borderRadius: '6px', whiteSpace: 'nowrap' }}
+                  onClick={() => { window.location.href = '/tutors'; }}
+                >
+                  <i className="fa-solid fa-graduation-cap" style={{ marginRight: '5px' }}></i> Book a Tutor
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 2. LEARNING SYLLABUS & ATTENDANCE PROGRESS */}
+          <div className="dash-card" style={{ padding: '18px 20px' }}>
+            <div className="dash-card-header" style={{ marginBottom: '14px', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f2a4a', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-chart-bar" style={{ color: '#10b981' }}></i> Learning Syllabus Completion Progress
+              </h3>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: '700', color: '#172533', marginBottom: '8px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <i className="fa-solid fa-book-open" style={{ color: '#0284c7', fontSize: '12px' }}></i> Overall Curriculum Mastery
+                </span>
+                <span style={{ fontSize: '14px', color: '#0284c7', fontFamily: 'monospace' }}>{progressPct}%</span>
+              </div>
+
+              <div style={{ height: '9px', width: '100%', background: '#e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${progressPct}%`,
+                  background: 'linear-gradient(90deg, #0284c7 0%, #10b981 100%)',
+                  borderRadius: '6px',
+                  transition: 'width 0.6s ease-in-out'
+                }}></div>
+              </div>
+            </div>
+
+            {/* SUBJECT-WISE ATTENDANCE BREAKDOWN */}
+            <div style={{ marginTop: '14px' }}>
+              <h4 style={{ fontSize: '13.5px', fontWeight: '800', color: '#0f2a4a', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <i className="fa-solid fa-clipboard-user" style={{ color: '#0284c7' }}></i> Subject-Wise Attendance Breakdown
+              </h4>
+
+              {stats && stats.subjectWiseAttendance && stats.subjectWiseAttendance.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {stats.subjectWiseAttendance.map((sub, idx) => (
+                    <div key={idx} style={{ background: '#ffffff', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                        <span>{sub.subject}</span>
+                        <span style={{ color: sub.attendancePercentage >= 75 ? '#16a34a' : '#d97706', fontFamily: 'monospace', fontWeight: '800' }}>
+                          {sub.attendedClasses} / {sub.totalClasses} Attended &bull; {sub.attendancePercentage}%
+                        </span>
+                      </div>
+                      <div style={{ height: '7px', width: '100%', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${sub.attendancePercentage}%`,
+                          background: sub.attendancePercentage >= 75 ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #f59e0b, #d97706)',
+                          borderRadius: '4px',
+                          transition: 'width 0.5s ease'
+                        }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <div style={{ padding: '20px', textAlignment: 'center', color: '#64748b', fontSize: '14px' }}>
-                  No upcoming live classes scheduled today. Book a tutor to schedule your first session!
+                <div style={{ padding: '12px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', color: '#64748b', fontSize: '12px' }}>
+                  No subject attendance records available yet. Attended class sessions will calculate live percentages here.
                 </div>
               )}
             </div>
           </div>
-
-          {/* SYLLABUS TRACKING */}
-          <div className="dash-card" style={{ marginTop: '16px' }}>
-            <div className="dash-card-header">
-              <h3><i className="fa-solid fa-bars-progress"></i> Learning Syllabus Completion Progress</h3>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                  <span>Overall Curriculum Mastery</span>
-                  <span>{stats ? stats.progressPercentage || 0 : 0}%</span>
-                </div>
-                <div style={{ height: '10px', width: '100%', background: '#e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${stats ? stats.progressPercentage || 0 : 0}%`, background: 'linear-gradient(90deg, #0284c7, #10b981)', borderRadius: '6px' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
-        <div>
-          {/* AI TUTOR MATCHING */}
-          <div className="dash-card">
-            <div className="dash-card-header">
-              <h3><i className="fa-solid fa-robot" style={{ color: '#0284c7' }}></i> AI Tutor Recommender</h3>
+        {/* COLUMN 2 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* 3. AI TUTOR RECOMMENDER */}
+          <div className="dash-card" style={{ padding: '18px 20px' }}>
+            <div className="dash-card-header" style={{ marginBottom: '12px', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f2a4a', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-robot" style={{ color: '#0284c7' }}></i> AI Tutor Recommender
+              </h3>
             </div>
-            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>
-              Our AI algorithm matched top verified tutors based on your learning goals.
-            </p>
-            <button className="dash-btn dash-btn-accent" style={{ width: '100%', justifyContent: 'center' }} onClick={onOpenAIRecommendations}>
-              <i className="fa-solid fa-wand-magic-sparkles"></i> View AI Recommendations
-            </button>
-          </div>
 
-          {/* REVIEWS CARD */}
-          <div className="dash-card" style={{ marginTop: '16px' }}>
-            <div className="dash-card-header">
-              <h3><i className="fa-solid fa-star" style={{ color: '#f59e0b' }}></i> Submit Tutor Review</h3>
-            </div>
-            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>
-              Have you completed a class recently? Share your feedback to help fellow students.
-            </p>
-            <button className="dash-btn dash-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={onOpenReviewModal}>
-              <i className="fa-solid fa-comment-medical"></i> Rate & Review Tutor
-            </button>
-          </div>
-
-          {/* REFERRAL PROGRAM CARD */}
-          <div className="dash-card" style={{ marginTop: '16px' }}>
-            <div className="dash-card-header">
-              <h3><i className="fa-solid fa-gift" style={{ color: '#10b981' }}></i> Referral Program & Rewards</h3>
-            </div>
-            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>
-              Share your referral code with friends. Earn <strong>₹100</strong> in your wallet when they sign up! They get <strong>₹50</strong> welcome bonus.
-            </p>
-
-            <div style={{ background: '#f1f5f9', padding: '12px 16px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', border: '1px solid #cbd5e1' }}>
-              <div>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Your Referral Code</span>
-                <strong style={{ fontSize: '18px', color: '#0284c7', letterSpacing: '1px' }}>{referralCode || 'SMART100'}</strong>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0, lineHeight: '1.45' }}>
+                  Find verified tutors matched specifically to your learning goals using AI.
+                </p>
               </div>
-              <button type="button" className="dash-btn dash-btn-outline" style={{ fontSize: '12px', padding: '6px 12px' }} onClick={copyReferralCode}>
-                <i className="fa-solid fa-copy"></i> {copied ? 'Copied!' : 'Copy Code'}
+              <button
+                type="button"
+                className="dash-btn dash-btn-accent"
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 16px',
+                  fontWeight: '700',
+                  borderRadius: '8px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 4px rgba(2, 132, 199, 0.15)',
+                  transition: 'all 0.2s ease',
+                }}
+                onClick={onOpenAIRecommendations}
+              >
+                <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: '6px' }}></i> View AI Recommendations
+              </button>
+            </div>
+          </div>
+
+          {/* 4. SUBMIT TUTOR REVIEW */}
+          <div className="dash-card" style={{ padding: '18px 20px' }}>
+            <div className="dash-card-header" style={{ marginBottom: '12px', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f2a4a', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-star" style={{ color: '#f59e0b' }}></i> Submit Tutor Review
+              </h3>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0, lineHeight: '1.45' }}>
+                  Completed a class recently? Share your feedback to help fellow students.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="dash-btn dash-btn-primary"
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 16px',
+                  fontWeight: '700',
+                  borderRadius: '8px',
+                  background: '#0f2a4a',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
+                }}
+                onClick={onOpenReviewModal}
+              >
+                <i className="fa-solid fa-comment-medical" style={{ marginRight: '6px' }}></i> Rate & Review Tutor
+              </button>
+            </div>
+          </div>
+
+          {/* 5. PAYMENT-BASED REFERRAL REWARDS */}
+          <div className="dash-card" style={{ padding: '18px 20px' }}>
+            <div className="dash-card-header" style={{ marginBottom: '12px', paddingBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f2a4a', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-gift" style={{ color: '#10b981' }}></i> Payment-Based Referral Rewards
+              </h3>
+            </div>
+
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px 0', lineHeight: '1.45' }}>
+              Share your referral link and earn <strong>₹100</strong> when your referred friend completes their first successful tuition payment. They receive <strong>₹50</strong>.
+            </p>
+
+            {/* REFERRAL CODE BOX */}
+            <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '10px' }}>
+              <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
+                Referral Code
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <strong style={{ fontSize: '15px', color: '#0f2a4a', letterSpacing: '0.5px', fontFamily: 'monospace' }}>
+                  {codeValue}
+                </strong>
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-outline"
+                  style={{ fontSize: '11px', padding: '4px 10px', height: '28px' }}
+                  onClick={copyReferralCode}
+                >
+                  <i className="fa-solid fa-copy" style={{ marginRight: '4px' }}></i> {copiedCode ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            {/* REFERRAL LINK BOX */}
+            <div style={{ background: '#f1f5f9', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
+              <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
+                Referral Link
+              </span>
+              <div style={{ fontSize: '11.5px', color: '#0284c7', fontWeight: '600', wordBreak: 'break-all', lineHeight: '1.3' }}>
+                {referralLinkUrl}
+              </div>
+            </div>
+
+            {/* LINK ACTION BUTTONS */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+              <button
+                type="button"
+                className="dash-btn dash-btn-outline"
+                style={{ fontSize: '11px', padding: '6px 10px', flex: 1, justifyContent: 'center' }}
+                onClick={copyReferralLink}
+              >
+                <i className="fa-solid fa-link" style={{ marginRight: '4px' }}></i> {copiedLink ? 'Copied!' : 'Copy Link'}
+              </button>
+              <button
+                type="button"
+                className="dash-btn dash-btn-primary"
+                style={{ fontSize: '11px', padding: '6px 10px', flex: 1, justifyContent: 'center' }}
+                onClick={shareReferralLink}
+              >
+                <i className="fa-solid fa-share-nodes" style={{ marginRight: '4px' }}></i> Share Link
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ flex: 1, background: '#e0f2fe', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
-                <span style={{ fontSize: '11px', color: '#0369a1', fontWeight: 700, display: 'block' }}>Total Earnings</span>
-                <strong style={{ fontSize: '16px', color: '#0284c7' }}>₹{referralEarnings || 0}.00</strong>
+            {/* STATS BOXES */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div style={{ background: '#e0f2fe', padding: '10px 12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #bae6fd' }}>
+                <span style={{ fontSize: '10.5px', color: '#0369a1', fontWeight: '700', display: 'block' }}>
+                  <i className="fa-solid fa-wallet" style={{ marginRight: '4px' }}></i> Credited
+                </span>
+                <strong style={{ fontSize: '15px', color: '#0284c7' }}>
+                  ₹{(referralEarnings || 0).toLocaleString('en-IN')}
+                </strong>
               </div>
-              <div style={{ flex: 1, background: '#dcfce7', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
-                <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 700, display: 'block' }}>Friends Referred</span>
-                <strong style={{ fontSize: '16px', color: '#16a34a' }}>{referredCount} {referredCount === 1 ? 'Friend' : 'Friends'}</strong>
+              <div style={{ background: '#dcfce7', padding: '10px 12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #bbf7d0' }}>
+                <span style={{ fontSize: '10.5px', color: '#15803d', fontWeight: '700', display: 'block' }}>
+                  <i className="fa-solid fa-users" style={{ marginRight: '4px' }}></i> Friends
+                </span>
+                <strong style={{ fontSize: '15px', color: '#16a34a' }}>
+                  {referredCount} Referred
+                </strong>
               </div>
             </div>
           </div>

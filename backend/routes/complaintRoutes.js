@@ -12,5 +12,6 @@ const { requireAuth } = require("../middleware/authMiddleware");
 
 router.post("/submit", requireAuth, complaintController.submitComplaint);
 router.get("/list", requireAuth, complaintController.getComplaints);
+router.get("/:id", requireAuth, complaintController.getComplaintById);
 
 module.exports = router;

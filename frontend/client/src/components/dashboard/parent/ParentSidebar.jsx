@@ -17,6 +17,7 @@ export const ParentSidebar = ({
     { id: 'search-tutors', label: 'Find Tutors for Child', icon: 'fa-magnifying-glass' },
     { id: 'invoices', label: 'Tuition Invoices', icon: 'fa-file-invoice-dollar' },
     { id: 'chat', label: 'Tutor Feedback & Chat', icon: 'fa-comments' },
+    { id: 'complaints', label: 'Complaints & Support', icon: 'fa-circle-exclamation' },
   ];
 
   return (
