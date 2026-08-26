@@ -125,16 +125,16 @@ export const AdminDemoRequestsTab = () => {
         </div>
 
         {/* DEMO REQUESTS TABLE */}
-        <div className="dash-table-wrapper" style={{ marginTop: '16px' }}>
-          <table className="dash-table">
+        <div className="dash-table-wrapper" style={{ marginTop: '16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
+          <table className="dash-table" style={{ width: '100%', minWidth: '1050px', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr>
-                <th>REQUEST DETAILS</th>
-                <th>STUDENT</th>
-                <th>TUTOR ASSIGNED</th>
-                <th>SUBJECT & MODE</th>
-                <th>STATUS</th>
-                <th>ADMIN ACTIONS</th>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', minWidth: '150px' }}>REQUEST DETAILS</th>
+                <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', minWidth: '180px' }}>STUDENT</th>
+                <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', minWidth: '180px' }}>TUTOR ASSIGNED</th>
+                <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', minWidth: '160px' }}>SUBJECT & MODE</th>
+                <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', minWidth: '170px' }}>STATUS</th>
+                <th style={{ padding: '12px 14px', whiteSpace: 'nowrap', minWidth: '240px', textAlign: 'center' }}>ADMIN ACTIONS</th>
               </tr>
             </thead>
             <tbody>
@@ -171,8 +171,8 @@ export const AdminDemoRequestsTab = () => {
                   const isRejectedTutor = b.status === 'Rejected by Tutor';
 
                   return (
-                    <tr key={b._id}>
-                      <td>
+                    <tr key={b._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                         <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>
                           ID: #{b._id.toString().slice(-6).toUpperCase()}
                         </div>
@@ -180,15 +180,15 @@ export const AdminDemoRequestsTab = () => {
                           {new Date(b.createdAt || Date.now()).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                         </small>
                       </td>
-                      <td>
+                      <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                         <div style={{ fontWeight: '700', color: '#0f2a4a' }}>{studentName}</div>
-                        <small style={{ color: '#64748b' }}>{studentEmail}</small>
+                        <small style={{ color: '#64748b', wordBreak: 'break-all' }}>{studentEmail}</small>
                       </td>
-                      <td>
+                      <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                         <div style={{ fontWeight: '700', color: '#0f2a4a' }}>{tutorName}</div>
-                        <small style={{ color: '#64748b' }}>{tutorEmail}</small>
+                        <small style={{ color: '#64748b', wordBreak: 'break-all' }}>{tutorEmail}</small>
                       </td>
-                      <td>
+                      <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                         <span style={{ fontWeight: '600', color: '#334155' }}>
                           {b.subject || 'General Demo'}
                         </span>
@@ -198,7 +198,7 @@ export const AdminDemoRequestsTab = () => {
                           </small>
                         </div>
                       </td>
-                      <td>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                         <span
                           className={`status-pill ${
                             isConfirmed
@@ -207,24 +207,31 @@ export const AdminDemoRequestsTab = () => {
                               ? 'status-pending'
                               : 'status-cancelled'
                           }`}
+                          style={{ whiteSpace: 'nowrap', display: 'inline-block' }}
                         >
                           {b.status}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', flexWrap: 'nowrap' }}>
                           {isPendingAdmin ? (
                             <>
                               <button
                                 type="button"
                                 className="dash-btn"
                                 style={{
-                                  padding: '5px 10px',
+                                  padding: '6px 12px',
                                   fontSize: '12px',
                                   background: '#dcfce7',
                                   color: '#15803d',
                                   border: '1px solid #86efac',
                                   fontWeight: '700',
+                                  borderRadius: '6px',
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  cursor: 'pointer',
                                 }}
                                 onClick={() => handleApprove(b._id)}
                               >
@@ -234,12 +241,18 @@ export const AdminDemoRequestsTab = () => {
                                 type="button"
                                 className="dash-btn"
                                 style={{
-                                  padding: '5px 10px',
+                                  padding: '6px 12px',
                                   fontSize: '12px',
                                   background: '#fff7ed',
                                   color: '#c2410c',
                                   border: '1px solid #ffedd5',
                                   fontWeight: '700',
+                                  borderRadius: '6px',
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  cursor: 'pointer',
                                 }}
                                 onClick={() => handleReject(b._id)}
                               >
@@ -247,7 +260,7 @@ export const AdminDemoRequestsTab = () => {
                               </button>
                             </>
                           ) : (
-                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginRight: '6px' }}>
+                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginRight: '4px', whiteSpace: 'nowrap' }}>
                               {isPendingTutor
                                 ? '⏳ Pending Tutor Acceptance'
                                 : isConfirmed
@@ -263,12 +276,18 @@ export const AdminDemoRequestsTab = () => {
                             className="dash-btn"
                             title="Delete Request"
                             style={{
-                              padding: '5px 8px',
+                              padding: '6px 10px',
                               fontSize: '12px',
                               background: '#fee2e2',
                               color: '#dc2626',
                               border: '1px solid #fca5a5',
                               fontWeight: '700',
+                              borderRadius: '6px',
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              cursor: 'pointer',
                             }}
                             onClick={() => handleDelete(b._id)}
                           >

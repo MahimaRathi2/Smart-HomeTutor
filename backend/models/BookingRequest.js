@@ -31,6 +31,7 @@ const bookingRequestSchema = new mongoose.Schema(
         "Approved",
         "Accepted",
         "Confirmed",
+        "Completed",
         "Rejected",
         "Rejected by Admin",
         "Rejected by Tutor",
@@ -68,6 +69,33 @@ const bookingRequestSchema = new mongoose.Schema(
       type: String,
       enum: ["Scheduled", "En Route", "Arrived", "Completed", "N/A"],
       default: "N/A",
+    },
+
+    // Approval tracking fields for Demo Class Workflow
+    adminApproved: {
+      type: Boolean,
+      default: false,
+    },
+
+    tutorApproved: {
+      type: Boolean,
+      default: false,
+    },
+
+    adminRejected: {
+      type: Boolean,
+      default: false,
+    },
+
+    tutorRejected: {
+      type: Boolean,
+      default: false,
+    },
+
+    classType: {
+      type: String,
+      enum: ["demo", "regular"],
+      default: "demo",
     },
 
     isChatUnlocked: {

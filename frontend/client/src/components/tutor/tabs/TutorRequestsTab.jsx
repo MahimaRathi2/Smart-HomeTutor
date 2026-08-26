@@ -84,9 +84,9 @@ export const TutorRequestsTab = ({ requests = [], onAcceptRequest, onRejectReque
                             : req.status}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
                         {isPendingAcceptance ? (
-                          <div style={{ display: 'flex', gap: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap' }}>
                             <button
                               type="button"
                               className="dash-btn"

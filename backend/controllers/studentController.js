@@ -49,7 +49,7 @@ exports.bookTutor = async (req, res) => {
     const isTrialRequest = isTrial !== undefined ? Boolean(isTrial) : true;
     const isPaidBooking = req.body.isPaid || req.body.paymentId;
 
-    // Enforce One-Time Demo Class Restriction Per Student-Tutor Pair
+    // Enforce One-Time Demo Class Restriction Per Student-Tutor Pair (Requirement 7)
     if (isTrialRequest) {
       const completedDemoBooking = await BookingRequest.exists({
         student: student._id,
@@ -61,14 +61,14 @@ exports.bookTutor = async (req, res) => {
       const completedDemoSchedule = await ClassSchedule.exists({
         student: student._id,
         tutor: tutorProfile.user._id,
-        isTrial: true,
+        $or: [{ isTrial: true }, { classType: "demo" }],
         status: "Completed",
       });
 
       if (completedDemoBooking || completedDemoSchedule) {
         return res.status(400).json({
           success: false,
-          message: "You have already attended a demo class with this tutor. Please select Regular Classes instead.",
+          message: "You have already completed a demo class with this tutor. Please book a regular class.",
         });
       }
     }
@@ -102,6 +102,7 @@ exports.bookTutor = async (req, res) => {
       });
     }
 
+    // Create Demo / Regular Booking Request (Do NOT create class schedule at this stage)
     const booking = await BookingRequest.create({
       student: student._id,
       tutor: tutorProfile.user._id,
@@ -114,7 +115,12 @@ exports.bookTutor = async (req, res) => {
       },
       isHomeVisit: Boolean(isHomeVisit),
       homeVisitStatus: isHomeVisit ? "Scheduled" : "N/A",
-      isTrial: isTrial !== undefined ? Boolean(isTrial) : true,
+      isTrial: isTrialRequest,
+      classType: isTrialRequest ? "demo" : "regular",
+      adminApproved: false,
+      tutorApproved: false,
+      adminRejected: false,
+      tutorRejected: false,
       status: "Pending Admin Approval",
     });
 
@@ -1333,6 +1339,63 @@ exports.getPendingDemoTutors = async (req, res) => {
     });
   } catch (err) {
     console.error("Get Pending Demo Tutors Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * GET /api/student/demo-statuses
+ * Returns detailed demo request stage breakdown for each tutor for the logged-in student.
+ */
+exports.getDemoStatuses = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+
+    const demoBookings = await BookingRequest.find({
+      student: studentId,
+      isTrial: true,
+    }).select("tutor tutorProfile status adminApproved tutorApproved homeVisitStatus");
+
+    const completedSchedules = await ClassSchedule.find({
+      student: studentId,
+      $or: [{ isTrial: true }, { classType: "demo" }],
+      status: "Completed",
+    }).select("tutor");
+
+    const demoStatusMap = {};
+
+    completedSchedules.forEach((s) => {
+      if (s.tutor) {
+        demoStatusMap[s.tutor.toString()] = "completed";
+      }
+    });
+
+    demoBookings.forEach((b) => {
+      const keys = [];
+      if (b.tutor) keys.push(b.tutor.toString());
+      if (b.tutorProfile) keys.push(b.tutorProfile.toString());
+
+      keys.forEach((key) => {
+        if (b.status === "Completed" || b.homeVisitStatus === "Completed") {
+          demoStatusMap[key] = "completed";
+        } else if (b.adminApproved && b.tutorApproved) {
+          if (demoStatusMap[key] !== "completed") demoStatusMap[key] = "scheduled";
+        } else if (b.adminApproved && !b.tutorApproved) {
+          if (demoStatusMap[key] !== "completed" && demoStatusMap[key] !== "scheduled") demoStatusMap[key] = "waiting_tutor";
+        } else if (!b.adminApproved && (b.status === "Pending Admin Approval" || b.status === "Pending")) {
+          if (demoStatusMap[key] !== "completed" && demoStatusMap[key] !== "scheduled" && demoStatusMap[key] !== "waiting_tutor") demoStatusMap[key] = "waiting_admin";
+        } else if (b.tutorApproved && !b.adminApproved) {
+          if (demoStatusMap[key] !== "completed" && demoStatusMap[key] !== "scheduled") demoStatusMap[key] = "waiting_admin";
+        }
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      demoStatusMap,
+    });
+  } catch (err) {
+    console.error("Get Demo Statuses Error:", err);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };

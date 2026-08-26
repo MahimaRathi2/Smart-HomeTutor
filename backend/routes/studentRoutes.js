@@ -39,6 +39,7 @@ router.get("/study-notes", requireAuth, authorizeRole("student"), studentControl
 router.get("/my-tutors", requireAuth, authorizeRole("student"), studentController.getMyTutors);
 router.get("/completed-demo-tutors", requireAuth, authorizeRole("student"), studentController.getCompletedDemoTutors);
 router.get("/pending-demo-tutors", requireAuth, authorizeRole("student"), studentController.getPendingDemoTutors);
+router.get("/demo-statuses", requireAuth, authorizeRole("student"), studentController.getDemoStatuses);
 router.get("/tutor-fee-summary", requireAuth, authorizeRole("student"), studentController.getTutorFeeSummary);
 router.post("/submit-homework", requireAuth, authorizeRole("student"), tutorDocUpload.single("file"), studentController.submitHomework);
 router.get("/submitted-homework", requireAuth, authorizeRole("student"), studentController.getStudentSubmittedHomework);

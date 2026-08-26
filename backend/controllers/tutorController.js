@@ -671,28 +671,49 @@ exports.acceptBookingRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: "Demo class request not found or not assigned to you." });
     }
 
-    booking.status = "Confirmed";
-    await booking.save();
+    // Set Tutor approval flag (Requirement 3)
+    booking.tutorApproved = true;
+    booking.tutorRejected = false;
 
+    const { createDemoClassScheduleIfBothApproved } = require("../utils/demoScheduleHelper");
     const tutorUser = await User.findById(req.user.id);
     const tutorName = tutorUser ? tutorUser.name : "Tutor";
 
-    // Deliver notification to Student that Tutor has accepted
+    // RULE 4: Check if BOTH Admin and Tutor have approved
+    if (booking.adminApproved) {
+      booking.status = "Confirmed";
+      await booking.save();
+
+      // Trigger automatic demo class creation ONLY when adminApproved && tutorApproved
+      await createDemoClassScheduleIfBothApproved(booking._id, req.app);
+
+      return res.status(200).json({
+        success: true,
+        message: `Demo class request accepted by both Admin & Tutor! Class scheduled.`,
+        booking,
+      });
+    }
+
+    // Otherwise, keep request pending Admin approval
+    booking.status = "Pending Admin Approval";
+    await booking.save();
+
+    // Deliver notification to Student that Tutor has accepted and Admin approval is pending
     if (booking.student) {
       await createNotification({
         userId: booking.student._id,
-        title: "Demo Class Confirmed 🎉",
-        message: `Your demo class request has been accepted by ${tutorName}.`,
+        title: "Demo Class Request Update ⌛",
+        message: `${tutorName} has accepted your demo class request. Waiting for final Admin approval.`,
         type: "booking",
         app: req.app,
       });
     }
 
-    await logUserActivity(req.user.id, `Tutor ${tutorName} accepted demo class request (${booking._id})`, req.ip);
+    await logUserActivity(req.user.id, `Tutor ${tutorName} accepted demo class request (${booking._id}) -> Waiting for Admin approval`, req.ip);
 
     return res.status(200).json({
       success: true,
-      message: `Demo class request ACCEPTED successfully!`,
+      message: `Demo class request ACCEPTED successfully! Sent to Admin for final approval.`,
       booking,
     });
   } catch (err) {
@@ -711,6 +732,8 @@ exports.rejectBookingRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: "Demo class request not found or not assigned to you." });
     }
 
+    booking.tutorApproved = false;
+    booking.tutorRejected = true;
     booking.status = "Rejected by Tutor";
     await booking.save();
 

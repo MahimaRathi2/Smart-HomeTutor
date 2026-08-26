@@ -13,12 +13,14 @@ export const SocketCallListener = () => {
     const socket = window.socket || window.io();
     window.socket = socket;
 
-    socket.emit('join', userId);
-    socket.emit('check-active-call', { userId });
+    const uidStr = String(userId);
+    socket.emit('join', { userId: uidStr, role: userRole });
+    socket.emit('register-user', { userId: uidStr });
+    socket.emit('check-active-call', { userId: uidStr });
 
     const handleActiveStatus = ({ hasActiveCall, call }) => {
       if (hasActiveCall && call && call.status === 'calling') {
-        if (call.callerId === userId.toString()) {
+        if (call.callerId === uidStr) {
           setOutgoingCall({
             bookingId: call.bookingId,
             recipientName: call.recipientName || 'Student',
@@ -38,9 +40,17 @@ export const SocketCallListener = () => {
       }
     };
 
-    const handleIncomingCall = ({ bookingId, callerName, subject, callerRole }) => {
+    const handleIncomingCall = (data) => {
+      console.log('📞 [SocketCallListener] Incoming video call received:', data);
+      if (!data) return;
       setCallStatusMsg('');
-      setIncomingCall({ bookingId, callerName, subject, callerRole });
+      setIncomingCall({
+        bookingId: data.bookingId,
+        callerId: data.callerId,
+        callerName: data.callerName || 'Tutor',
+        subject: data.subject || 'Tuition Class',
+        callerRole: data.callerRole || 'Tutor',
+      });
     };
 
     const handleCallAck = ({ success, online, recipientName, bookingId }) => {
@@ -95,6 +105,7 @@ export const SocketCallListener = () => {
 
     socket.on('active-call-status', handleActiveStatus);
     socket.on('incoming-video-call', handleIncomingCall);
+    socket.on('incoming-call', handleIncomingCall);
     socket.on('call-initiated-ack', handleCallAck);
     socket.on('call-accepted', handleCallAccepted);
     socket.on('call-declined', handleCallDeclined);
@@ -106,6 +117,7 @@ export const SocketCallListener = () => {
     return () => {
       socket.off('active-call-status', handleActiveStatus);
       socket.off('incoming-video-call', handleIncomingCall);
+      socket.off('incoming-call', handleIncomingCall);
       socket.off('call-initiated-ack', handleCallAck);
       socket.off('call-accepted', handleCallAccepted);
       socket.off('call-declined', handleCallDeclined);

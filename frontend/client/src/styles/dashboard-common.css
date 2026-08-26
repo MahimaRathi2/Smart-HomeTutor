@@ -317,8 +317,9 @@
 
 /* DASHBOARD BUTTONS */
 .dash-btn {
-  display: inline-flex;
-  align-items: center;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   gap: 8px;
   padding: 9px 16px;
   border-radius: var(--dash-radius-md);
@@ -329,6 +330,9 @@
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--dash-shadow-subtle);
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  word-break: keep-all !important;
 }
 
 .dash-btn-primary {
@@ -458,7 +462,10 @@
 
 /* TABLES */
 .dash-table-wrapper {
-  overflow-x: auto;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
   border-radius: var(--dash-radius-md);
   border: 1px solid var(--dash-border);
   background: #ffffff;
@@ -466,7 +473,7 @@
 
 .dash-table {
   width: 100%;
-  min-width: 650px;
+  min-width: 900px !important;
   border-collapse: collapse;
   text-align: left;
 }
@@ -480,7 +487,7 @@
   text-transform: uppercase;
   letter-spacing: 0.6px;
   border-bottom: 1px solid var(--dash-border);
-  white-space: nowrap;
+  white-space: nowrap !important;
 }
 
 .dash-table td {
@@ -490,7 +497,7 @@
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
   transition: background 0.15s ease;
-  white-space: nowrap;
+  white-space: nowrap !important;
 }
 
 .dash-table tbody tr:hover td {
@@ -749,7 +756,7 @@
   }
 
   .dash-table {
-    min-width: 600px !important; /* Prevents table compression on small mobile screens */
+    min-width: 850px !important; /* Prevents table compression on mobile screens */
   }
 
   .mobile-scroll-flex {

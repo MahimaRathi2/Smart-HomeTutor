@@ -65,7 +65,10 @@ exports.renderVideoCall = async (req, res) => {
       );
     }
 
-    if (booking.status !== "Accepted") {
+    const validStatuses = ["Accepted", "Confirmed", "Approved", "Scheduled"];
+    const isStatusValid = booking && (validStatuses.includes(booking.status) || (booking.adminApproved && booking.tutorApproved));
+
+    if (!isStatusValid) {
       const userRole = req.user?.role || "user";
       return res.status(403).redirect(
         `/dashboard/${userRole}?error=${encodeURIComponent(
@@ -131,8 +134,8 @@ exports.getVideoCallStatus = async (req, res) => {
     const studentIdStr = (booking.student?._id || booking.student || "").toString();
     const tutorIdStr = (booking.tutor?._id || booking.tutor || "").toString();
 
-    const isParticipant = userIdStr === studentIdStr || userIdStr === tutorIdStr || req.user?.role === "admin";
-    const isAccepted = booking.status === "Accepted";
+    const validStatuses = ["Accepted", "Confirmed", "Approved", "Scheduled"];
+    const isAccepted = validStatuses.includes(booking.status) || (booking.adminApproved && booking.tutorApproved);
 
     return res.status(200).json({
       success: true,
@@ -161,7 +164,10 @@ exports.getVideoCallDetails = async (req, res) => {
       return res.status(404).json({ success: false, message: "Class session or booking request not found." });
     }
 
-    if (booking.status !== "Accepted") {
+    const validDetailsStatuses = ["Accepted", "Confirmed", "Approved", "Scheduled"];
+    const isDetailsStatusValid = booking && (validDetailsStatuses.includes(booking.status) || (booking.adminApproved && booking.tutorApproved));
+
+    if (!isDetailsStatusValid) {
       return res.status(403).json({
         success: false,
         message: "Video call is unavailable. The class session must be active.",

@@ -61,28 +61,41 @@ function initVideoCallSocket(io) {
   }
 
   io.on("connection", (socket) => {
-    
-    socket.on("join", (userId) => {
-      if (userId) {
-        const uid = userId.toString();
+    socket.on("join", (data) => {
+      let uid = null;
+      if (typeof data === "object" && data !== null) {
+        if (data.userId) uid = String(data.userId);
+      } else if (data) {
+        uid = String(data);
+      }
+
+      if (uid && uid !== "[object Object]") {
         socket.userId = uid;
+        socket.join(uid);
         socket.join(`user_${uid}`);
-        
+
         if (!userSockets.has(uid)) {
           userSockets.set(uid, new Set());
         }
         userSockets.get(uid).add(socket.id);
-        
-        console.log(`👤 [VideoCallSocket] User ${uid} joined personal room user_${uid} (Socket: ${socket.id})`);
+
+        console.log(`👤 [VideoCallSocket] User ${uid} joined socket rooms: ${uid} & user_${uid} (Socket: ${socket.id})`);
       }
     });
 
-    socket.on("register-user", ({ userId }) => {
-      if (userId) {
-        const uid = userId.toString();
+    socket.on("register-user", (data) => {
+      let uid = null;
+      if (typeof data === "object" && data !== null) {
+        if (data.userId) uid = String(data.userId);
+      } else if (data) {
+        uid = String(data);
+      }
+
+      if (uid && uid !== "[object Object]") {
         socket.userId = uid;
+        socket.join(uid);
         socket.join(`user_${uid}`);
-        
+
         if (!userSockets.has(uid)) {
           userSockets.set(uid, new Set());
         }
@@ -91,7 +104,7 @@ function initVideoCallSocket(io) {
     });
 
     socket.on("check-active-call", ({ userId }) => {
-      const uid = userId ? userId.toString() : socket.userId;
+      const uid = userId ? String(userId) : socket.userId;
       if (!uid) {
         socket.emit("active-call-status", { hasActiveCall: false });
         return;
@@ -134,33 +147,48 @@ function initVideoCallSocket(io) {
         // Clear any existing stale session for this booking
         if (activeCalls.has(bIdStr)) {
           const oldSession = activeCalls.get(bIdStr);
-          if (oldSession.timeoutTimer) clearTimeout(oldSession.timeoutTimer);
+          if (oldSession && oldSession.timeoutTimer) clearTimeout(oldSession.timeoutTimer);
           activeCalls.delete(bIdStr);
         }
 
         const booking = await findBookingOrScheduleSocket(bIdStr);
 
-        if (!booking || booking.status !== "Accepted") {
+        const validStatuses = ["Accepted", "Confirmed", "Approved", "Scheduled"];
+        const isStatusValid = booking && (validStatuses.includes(booking.status) || (booking.adminApproved && booking.tutorApproved));
+
+        if (!booking || !isStatusValid) {
           socket.emit("video-error", { message: "Video call is only available for active sessions or ACCEPTED bookings." });
           return;
         }
 
-        const callerIdStr = callerId ? callerId.toString() : (socket.userId || booking.tutor._id.toString());
-        const isCallerStudent = booking.student._id.toString() === callerIdStr;
+        let callerIdStr = "";
+        if (callerId) {
+          callerIdStr = String(callerId);
+        } else if (socket.userId && socket.userId !== "[object Object]") {
+          callerIdStr = String(socket.userId);
+        } else if (booking.tutor && booking.tutor._id) {
+          callerIdStr = booking.tutor._id.toString();
+        }
+
+        const studentIdStr = booking.student?._id ? booking.student._id.toString() : String(booking.student);
+        const tutorIdStr = booking.tutor?._id ? booking.tutor._id.toString() : String(booking.tutor);
+
+        const isCallerStudent = studentIdStr === callerIdStr;
         const recipientUser = isCallerStudent ? booking.tutor : booking.student;
-        const recipientIdStr = recipientUser._id.toString();
+        const recipientIdStr = isCallerStudent ? tutorIdStr : studentIdStr;
 
         const subject = (booking.tutorProfile && booking.tutorProfile.subjects && booking.tutorProfile.subjects.length) 
           ? booking.tutorProfile.subjects.join(", ") 
-          : "Tuition Session";
+          : (booking.subject || "Tuition Session");
 
-        const resolvedCallerName = callerName || (isCallerStudent ? booking.student.name : booking.tutor.name);
+        const resolvedCallerName = callerName || (isCallerStudent ? (booking.student?.name || "Student") : (booking.tutor?.name || "Tutor"));
         const resolvedCallerRole = callerRole || (isCallerStudent ? "Student" : "Tutor");
 
         const roomId = `room_${bIdStr}`;
         socket.join(roomId);
         socket.videoRoomId = roomId;
         socket.videoUserId = callerIdStr;
+
         const timeoutTimer = setTimeout(() => {
           if (activeCalls.has(bIdStr) && activeCalls.get(bIdStr).status === "calling") {
             console.log(`⏰ [Video Call] Call ${bIdStr} timed out (30s elapsed).`);
@@ -174,7 +202,7 @@ function initVideoCallSocket(io) {
           callerName: resolvedCallerName,
           callerRole: resolvedCallerRole,
           recipientId: recipientIdStr,
-          recipientName: recipientUser.name,
+          recipientName: recipientUser?.name || "User",
           subject,
           status: "calling",
           callerSocketId: socket.id,
@@ -184,23 +212,32 @@ function initVideoCallSocket(io) {
 
         activeCalls.set(bIdStr, newSession);
 
-        const isRecipientOnline = userSockets.has(recipientIdStr) && userSockets.get(recipientIdStr).size > 0;
+        const isRecipientOnline = (userSockets.has(recipientIdStr) && userSockets.get(recipientIdStr).size > 0) ||
+                                  (io.sockets.adapter.rooms.has(recipientIdStr) || io.sockets.adapter.rooms.has(`user_${recipientIdStr}`));
 
-        console.log(`📞 [Video Call] Initiated call ${bIdStr} from ${resolvedCallerName} to ${recipientUser.name}. Recipient online: ${isRecipientOnline}`);
+        console.log(`📞 [Video Call] Initiated call ${bIdStr} from ${resolvedCallerName} (${callerIdStr}) to ${recipientUser?.name || 'User'} (${recipientIdStr}). Recipient online: ${isRecipientOnline}`);
 
-        io.to(`user_${recipientIdStr}`).emit("incoming-video-call", {
+        const incomingCallPayload = {
           bookingId: bIdStr,
           callerId: callerIdStr,
           callerName: resolvedCallerName,
           callerRole: resolvedCallerRole,
           subject,
+          roomId,
+          timestamp: Date.now(),
           status: "calling",
-        });
+        };
+
+        // Emit call notifications to both user_recipientId and recipientId rooms for guaranteed delivery
+        io.to(`user_${recipientIdStr}`).emit("incoming-video-call", incomingCallPayload);
+        io.to(`user_${recipientIdStr}`).emit("incoming-call", incomingCallPayload);
+        io.to(recipientIdStr).emit("incoming-video-call", incomingCallPayload);
+        io.to(recipientIdStr).emit("incoming-call", incomingCallPayload);
 
         socket.emit("call-initiated-ack", {
           success: true,
           online: isRecipientOnline,
-          recipientName: recipientUser.name,
+          recipientName: recipientUser?.name || "Student",
           bookingId: bIdStr
         });
 

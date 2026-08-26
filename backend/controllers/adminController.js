@@ -1953,14 +1953,46 @@ exports.approveBookingRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: "Demo class request not found." });
     }
 
-    // Set status to Pending Tutor Acceptance so tutor receives the request
+    // Set Admin approval flag (Requirement 2)
+    booking.adminApproved = true;
+    booking.adminRejected = false;
+
+    const { createDemoClassScheduleIfBothApproved } = require("../utils/demoScheduleHelper");
+    const studentName = booking.student ? (booking.student.name || booking.student.email) : "A student";
+    const tutorName = booking.tutor ? (booking.tutor.name || "Tutor") : "Tutor";
+    const subjectName = (booking.tutorProfile && booking.tutorProfile.primarySubject) || "Tuition";
+
+    // RULE 4: Check if BOTH Admin and Tutor have approved
+    if (booking.tutorApproved) {
+      booking.status = "Confirmed";
+      await booking.save();
+
+      // Trigger automatic demo class creation ONLY when adminApproved && tutorApproved
+      await createDemoClassScheduleIfBothApproved(booking._id, req.app);
+
+      return res.status(200).json({
+        success: true,
+        message: "Demo class request approved by both Admin & Tutor! Class scheduled.",
+        booking,
+      });
+    }
+
+    // Otherwise, keep request pending tutor approval
     booking.status = "Pending Tutor Acceptance";
     await booking.save();
 
-    const studentName = booking.student ? (booking.student.name || booking.student.email) : "A student";
-    const subjectName = (booking.tutorProfile && booking.tutorProfile.primarySubject) || "Tuition";
+    // Notify Student that Admin approved and tutor approval is pending
+    if (booking.student) {
+      await createNotification({
+        userId: booking.student._id,
+        title: "Demo Class Request Update ⌛",
+        message: `Admin has approved your demo request for ${tutorName}. Waiting for tutor approval.`,
+        type: "booking",
+        app: req.app,
+      });
+    }
 
-    // Deliver user-specific notification ONLY to Tutor (NOT final confirmation to student yet)
+    // Notify Tutor
     if (booking.tutor) {
       await createNotification({
         userId: booking.tutor._id,
@@ -1971,7 +2003,7 @@ exports.approveBookingRequest = async (req, res) => {
       });
     }
 
-    await logUserActivity(req.user.id, `Admin approved demo class request (${booking._id}) -> Sent to Tutor for acceptance`, req.ip);
+    await logUserActivity(req.user.id, `Admin approved demo class request (${booking._id}) -> Waiting for Tutor acceptance`, req.ip);
 
     return res.status(200).json({
       success: true,
@@ -1994,6 +2026,8 @@ exports.rejectBookingRequest = async (req, res) => {
       return res.status(404).json({ success: false, message: "Demo class request not found." });
     }
 
+    booking.adminApproved = false;
+    booking.adminRejected = true;
     booking.status = "Rejected by Admin";
     await booking.save();
 

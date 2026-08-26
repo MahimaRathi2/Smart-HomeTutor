@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { studentApi } from '../../../services/studentApi';
-import { isDemoCompletedForTutor } from '../../../utils/demoEligibility';
+import { isDemoCompletedForTutor, getDemoStageForTutor } from '../../../utils/demoEligibility';
 
 export const FindTutorsTab = ({ onBookTutor, onRegularClass }) => {
   const [tutors, setTutors] = useState([]);
   const [completedDemoTutorIds, setCompletedDemoTutorIds] = useState([]);
+  const [demoStatusMap, setDemoStatusMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     search: '',
@@ -21,9 +22,10 @@ export const FindTutorsTab = ({ onBookTutor, onRegularClass }) => {
   const loadTutors = async () => {
     setLoading(true);
     try {
-      const [data, demoData] = await Promise.all([
+      const [data, demoData, statusData] = await Promise.all([
         studentApi.getTutors(filters),
         studentApi.getCompletedDemoTutors(),
+        studentApi.getDemoStatuses(),
       ]);
 
       if (data.success && data.tutors) {
@@ -34,6 +36,10 @@ export const FindTutorsTab = ({ onBookTutor, onRegularClass }) => {
 
       if (demoData.success && demoData.completedDemoTutorIds) {
         setCompletedDemoTutorIds(demoData.completedDemoTutorIds);
+      }
+
+      if (statusData.success && statusData.demoStatusMap) {
+        setDemoStatusMap(statusData.demoStatusMap);
       }
     } catch (err) {
       console.error(err);
@@ -233,33 +239,111 @@ export const FindTutorsTab = ({ onBookTutor, onRegularClass }) => {
                   <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f2a4a' }}>
                     ₹{tutor.fee || 500}<small style={{ fontSize: '11px', fontWeight: 400, color: '#64748b' }}>/hr</small>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <a href={`/tutor/${tutor._id}`} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-outline" style={{ fontSize: '11.5px', padding: '5px 8px', textDecoration: 'none' }}>
                       Profile
                     </a>
-                    {isDemoCompletedForTutor(tutor, completedDemoTutorIds) ? (
-                      <button
-                        type="button"
-                        className="dash-btn dash-btn-outline"
-                        disabled
-                        style={{ fontSize: '11.5px', padding: '5px 10px', opacity: 0.7, cursor: 'not-allowed', background: '#f1f5f9', color: '#64748b', borderColor: '#cbd5e1' }}
-                        title="You have already attended a demo class with this tutor. You can book Regular Classes instead."
-                      >
-                        Demo Completed ✓
-                      </button>
-                    ) : (
-                      <button type="button" className="dash-btn dash-btn-outline" style={{ fontSize: '11.5px', padding: '5px 10px' }} onClick={() => onBookTutor(tutor)}>
-                        Book Demo
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="dash-btn dash-btn-primary"
-                      style={{ fontSize: '11.5px', padding: '5px 10px', background: '#0284c7', borderColor: '#0284c7' }}
-                      onClick={() => onRegularClass ? onRegularClass(tutor) : onBookTutor(tutor)}
-                    >
-                      Regular Classes
-                    </button>
+                    {(() => {
+                      const demoStage = getDemoStageForTutor(tutor, completedDemoTutorIds, demoStatusMap);
+                      if (demoStage === 'completed') {
+                        return (
+                          <div style={{ width: '100%', marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ fontSize: '11px', color: '#166534', background: '#dcfce7', border: '1px solid #86efac', padding: '6px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                              ✓ You have already taken the demo class. Book a regular class to continue.
+                            </div>
+                            <button
+                              type="button"
+                              className="dash-btn dash-btn-primary"
+                              style={{ fontSize: '11.5px', padding: '6px 12px', background: '#0284c7', borderColor: '#0284c7', width: '100%', justifyContent: 'center' }}
+                              onClick={() => onRegularClass ? onRegularClass(tutor) : onBookTutor(tutor)}
+                            >
+                              Book Regular Class
+                            </button>
+                          </div>
+                        );
+                      }
+                      if (demoStage === 'scheduled') {
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              className="dash-btn dash-btn-outline"
+                              disabled
+                              style={{ fontSize: '11.5px', padding: '5px 10px', opacity: 0.8, cursor: 'not-allowed', background: '#ecfdf5', color: '#047857', borderColor: '#a7f3d0' }}
+                            >
+                              Demo Class Scheduled
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-btn dash-btn-primary"
+                              style={{ fontSize: '11.5px', padding: '5px 10px', background: '#0284c7', borderColor: '#0284c7' }}
+                              onClick={() => onRegularClass ? onRegularClass(tutor) : onBookTutor(tutor)}
+                            >
+                              Regular Classes
+                            </button>
+                          </>
+                        );
+                      }
+                      if (demoStage === 'waiting_tutor') {
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              className="dash-btn dash-btn-outline"
+                              disabled
+                              style={{ fontSize: '11.5px', padding: '5px 10px', opacity: 0.8, cursor: 'not-allowed', background: '#fff7ed', color: '#c2410c', borderColor: '#fed7aa' }}
+                            >
+                              Waiting for Tutor Approval
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-btn dash-btn-primary"
+                              style={{ fontSize: '11.5px', padding: '5px 10px', background: '#0284c7', borderColor: '#0284c7' }}
+                              onClick={() => onRegularClass ? onRegularClass(tutor) : onBookTutor(tutor)}
+                            >
+                              Regular Classes
+                            </button>
+                          </>
+                        );
+                      }
+                      if (demoStage === 'waiting_admin') {
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              className="dash-btn dash-btn-outline"
+                              disabled
+                              style={{ fontSize: '11.5px', padding: '5px 10px', opacity: 0.8, cursor: 'not-allowed', background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
+                            >
+                              Waiting for Admin Approval
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-btn dash-btn-primary"
+                              style={{ fontSize: '11.5px', padding: '5px 10px', background: '#0284c7', borderColor: '#0284c7' }}
+                              onClick={() => onRegularClass ? onRegularClass(tutor) : onBookTutor(tutor)}
+                            >
+                              Regular Classes
+                            </button>
+                          </>
+                        );
+                      }
+                      return (
+                        <>
+                          <button type="button" className="dash-btn dash-btn-outline" style={{ fontSize: '11.5px', padding: '5px 10px' }} onClick={() => onBookTutor(tutor)}>
+                            Book Demo Class
+                          </button>
+                          <button
+                            type="button"
+                            className="dash-btn dash-btn-primary"
+                            style={{ fontSize: '11.5px', padding: '5px 10px', background: '#0284c7', borderColor: '#0284c7' }}
+                            onClick={() => onRegularClass ? onRegularClass(tutor) : onBookTutor(tutor)}
+                          >
+                            Regular Classes
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

@@ -124,6 +124,17 @@ export const studentApi = {
     }
   },
 
+  // Get Demo Statuses Map for Tutors
+  getDemoStatuses: async () => {
+    try {
+      const res = await fetch('/api/student/demo-statuses');
+      return await res.json();
+    } catch (err) {
+      console.error('getDemoStatuses error:', err);
+      return { success: false, demoStatusMap: {} };
+    }
+  },
+
   // Get Tutor Fee Summary
   getTutorFeeSummary: async (tutorId) => {
     const res = await fetch(`/api/student/tutor-fee-summary?tutorId=${tutorId}`);

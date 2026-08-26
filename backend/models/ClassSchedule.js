@@ -54,6 +54,19 @@ const classScheduleSchema = new mongoose.Schema(
       enum: ["Online", "Offline"],
       default: "Online",
     },
+    classType: {
+      type: String,
+      enum: ["demo", "regular"],
+      default: "regular",
+    },
+    isRecurring: {
+      type: Boolean,
+      default: false,
+    },
+    isTrial: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       enum: ["Scheduled", "Completed", "Cancelled", "Rescheduled"],

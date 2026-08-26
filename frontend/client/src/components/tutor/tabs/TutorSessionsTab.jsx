@@ -107,13 +107,13 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
                           <i className="fa-solid fa-clipboard-user"></i> {attStatus}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'nowrap' }}>
                           {isOnline && (
                             <button
                               type="button"
                               className="dash-btn dash-btn-primary"
-                              style={{ padding: '5px 10px', fontSize: '11.5px' }}
+                              style={{ padding: '6px 12px', fontSize: '11.5px', whiteSpace: 'nowrap' }}
                               onClick={() => {
                                 if (window.socket) {
                                   window.socket.emit('initiate-video-call', {
@@ -132,7 +132,7 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
                           <button
                             type="button"
                             className="dash-btn dash-btn-outline"
-                            style={{ padding: '5px 10px', fontSize: '11.5px', borderColor: '#10b981', color: '#047857' }}
+                            style={{ padding: '6px 12px', fontSize: '11.5px', borderColor: '#10b981', color: '#047857', whiteSpace: 'nowrap' }}
                             onClick={() => handleOpenAttendance(item)}
                           >
                             <i className="fa-solid fa-clipboard-check"></i> Mark Attendance
@@ -140,7 +140,7 @@ export const TutorSessionsTab = ({ sessions = [], onRefresh }) => {
                           <button
                             type="button"
                             className="dash-btn dash-btn-outline"
-                            style={{ padding: '5px 10px', fontSize: '11.5px', borderColor: '#0284c7', color: '#0284c7' }}
+                            style={{ padding: '6px 12px', fontSize: '11.5px', borderColor: '#0284c7', color: '#0284c7', whiteSpace: 'nowrap' }}
                             onClick={() => handleRequestCert(item)}
                           >
                             <i className="fa-solid fa-award"></i> Request Cert
