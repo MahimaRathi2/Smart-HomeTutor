@@ -6,7 +6,9 @@ import { TutorProfileHeader } from '../../components/tutor/TutorProfileHeader';
 import { TutorAbout } from '../../components/tutor/TutorAbout';
 import { TutorReviews } from '../../components/tutor/TutorReviews';
 import { TutorBookingModal } from '../../components/tutor/TutorBookingModal';
+import { RegularClassPaymentModal } from '../../components/tutor/RegularClassPaymentModal';
 import { ArrowLeftIcon, SpinnerIcon, UserIcon } from '../../components/common/ReactIcons';
+import { isDemoCompletedForTutor } from '../../utils/demoEligibility';
 import '../../styles/tutor-profile.css';
 
 export const TutorProfile = () => {
@@ -15,9 +17,11 @@ export const TutorProfile = () => {
 
   const [tutor, setTutor] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [completedDemoTutorIds, setCompletedDemoTutorIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isRegularModalOpen, setIsRegularModalOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -33,7 +37,11 @@ export const TutorProfile = () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`/api/tutor/details/${tutorId}`);
+      const [res, demoRes] = await Promise.all([
+        fetch(`/api/tutor/details/${tutorId}`),
+        fetch('/api/student/completed-demo-tutors').catch(() => null),
+      ]);
+
       const data = await res.json();
 
       if (res.ok && data.success && data.tutor) {
@@ -41,6 +49,13 @@ export const TutorProfile = () => {
         setReviews(data.reviews || []);
       } else {
         setErrorMsg(data.message || 'Tutor Profile Not Found.');
+      }
+
+      if (demoRes && demoRes.ok) {
+        const demoData = await demoRes.json();
+        if (demoData.success && demoData.completedDemoTutorIds) {
+          setCompletedDemoTutorIds(demoData.completedDemoTutorIds);
+        }
       }
     } catch (err) {
       console.error('Fetch Tutor Details Error:', err);
@@ -51,6 +66,7 @@ export const TutorProfile = () => {
   };
 
   const tutorName = tutor ? (tutor.fullName || (tutor.user ? tutor.user.name : 'Tutor Profile')) : 'Tutor Profile';
+  const isDemoUsed = isDemoCompletedForTutor(tutor || { _id: id }, completedDemoTutorIds);
 
   return (
     <div className="tutor-profile-page-bg">
@@ -93,7 +109,12 @@ export const TutorProfile = () => {
               <TutorProfileHeader tutor={tutor} />
 
               {/* DETAILS GRID & ABOUT BIOGRAPHY & CTA */}
-              <TutorAbout tutor={tutor} onBookClick={() => setIsBookingModalOpen(true)} />
+              <TutorAbout
+                tutor={tutor}
+                onBookClick={() => setIsBookingModalOpen(true)}
+                onRegularClick={() => setIsRegularModalOpen(true)}
+                isDemoUsed={isDemoUsed}
+              />
 
               {/* STUDENT REVIEWS */}
               <TutorReviews reviews={reviews} />
@@ -104,12 +125,19 @@ export const TutorProfile = () => {
         </div>
       </main>
 
-      {/* BOOKING MODAL */}
+      {/* DEMO BOOKING MODAL */}
       <TutorBookingModal
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
         tutorId={id}
         tutorName={tutorName}
+      />
+
+      {/* REGULAR CLASS PAYMENT & BOOKING MODAL */}
+      <RegularClassPaymentModal
+        isOpen={isRegularModalOpen}
+        onClose={() => setIsRegularModalOpen(false)}
+        tutor={{ ...tutor, _id: id }}
       />
 
       <Footer />

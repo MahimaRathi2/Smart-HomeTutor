@@ -15,7 +15,7 @@ import {
   CalendarDaysIcon
 } from '../common/ReactIcons';
 
-export const TutorAbout = ({ tutor = {}, onBookClick }) => {
+export const TutorAbout = ({ tutor = {}, onBookClick, onRegularClick, isDemoUsed = false }) => {
   const lat = tutor.coordinates && tutor.coordinates.lat ? tutor.coordinates.lat : 28.6139;
   const lng = tutor.coordinates && tutor.coordinates.lng ? tutor.coordinates.lng : 77.2090;
   const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
@@ -163,16 +163,39 @@ export const TutorAbout = ({ tutor = {}, onBookClick }) => {
         </p>
       </div>
 
-      {/* BOOK DEMO CLASS CTA BUTTON */}
-      <div className="tutor-booking-cta-area">
+      {/* BOOKING CTA BUTTONS */}
+      <div className="tutor-booking-cta-area" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <button
           type="button"
-          id="bookTutorBtn"
           className="tutor-book-btn"
-          onClick={onBookClick}
+          onClick={onRegularClick}
+          style={{ flex: 1, background: '#0284c7', borderColor: '#0284c7' }}
         >
-          <CalendarDaysIcon size={18} color="#f59e0b" /> Book Demo Class
+          <GraduationCapIcon size={18} color="#ffffff" /> Book Regular Class (Payment First)
         </button>
+
+        {isDemoUsed ? (
+          <button
+            type="button"
+            id="bookTutorBtn"
+            className="tutor-book-btn"
+            disabled
+            style={{ flex: 1, opacity: 0.65, cursor: 'not-allowed', background: '#f1f5f9', color: '#64748b', borderColor: '#cbd5e1' }}
+            title="You have already attended a demo class with this tutor. You can book Regular Classes instead."
+          >
+            <CalendarDaysIcon size={18} color="#64748b" /> Demo Completed ✓
+          </button>
+        ) : (
+          <button
+            type="button"
+            id="bookTutorBtn"
+            className="tutor-book-btn"
+            onClick={onBookClick}
+            style={{ flex: 1 }}
+          >
+            <CalendarDaysIcon size={18} color="#f59e0b" /> Book Demo Class
+          </button>
+        )}
       </div>
     </div>
   );

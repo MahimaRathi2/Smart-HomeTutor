@@ -11,6 +11,7 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
   const [tutorTypingName, setTutorTypingName] = useState('');
   const [isChatLocked, setIsChatLocked] = useState(false);
   const [chatLockMessage, setChatLockMessage] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -234,16 +235,35 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
   };
 
   return (
-    <div className="dash-tab-content" style={{ display: 'block' }}>
-      <div className="dash-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="chat-layout">
+    <div className={`dash-tab-content ${isFullScreen ? 'chat-fullscreen-wrapper' : ''}`} style={{ display: 'block' }}>
+      <div
+        className={`dash-card ${isFullScreen ? 'chat-card-fullscreen' : ''}`}
+        style={
+          isFullScreen
+            ? {
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                zIndex: 99999,
+                borderRadius: 0,
+                margin: 0,
+                padding: 0,
+                boxShadow: 'none',
+                background: '#ffffff',
+              }
+            : { padding: 0, overflow: 'hidden' }
+        }
+      >
+        <div className={`chat-layout ${isFullScreen ? 'fullscreen' : ''}`} style={isFullScreen ? { height: '100vh' } : {}}>
           {/* LEFT CONVERSATIONS SIDEBAR */}
           <div className="chat-sidebar">
             <div className="chat-sidebar-header">
               <h3>Messages</h3>
             </div>
 
-            <div id="conversationList">
+            <div id="conversationList" style={{ overflowY: 'auto', flex: 1 }}>
               {conversations.length === 0 ? (
                 <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
                   No conversations yet. Book a tutor to start chatting!
@@ -302,17 +322,43 @@ export const ChatTab = ({ studentUser, onStartVideoCall }) => {
                 )}
               </div>
 
-              {selectedTutor && (
-                isChatLocked ? (
-                  <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                    <i className="fa-solid fa-lock"></i> Chat Locked
-                  </span>
-                ) : (
-                  <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                    <i className="fa-solid fa-comments"></i> 💬 Chat Unlocked
-                  </span>
-                )
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {selectedTutor && (
+                  isChatLocked ? (
+                    <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <i className="fa-solid fa-lock"></i> Chat Locked
+                    </span>
+                  ) : (
+                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <i className="fa-solid fa-comments"></i> 💬 Chat Unlocked
+                    </span>
+                  )
+                )}
+
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-outline"
+                  onClick={() => setIsFullScreen(!isFullScreen)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: isFullScreen ? '#0f2a4a' : '#ffffff',
+                    color: isFullScreen ? '#ffffff' : '#0f2a4a',
+                    borderColor: '#0f2a4a',
+                    cursor: 'pointer',
+                    borderRadius: '8px',
+                    transition: 'all 0.2s ease',
+                  }}
+                  title={isFullScreen ? 'Exit Full Screen' : 'Expand to Full Screen'}
+                >
+                  <i className={`fa-solid ${isFullScreen ? 'fa-compress' : 'fa-expand'}`}></i>
+                  <span>{isFullScreen ? 'Exit Full Screen' : 'Full Screen'}</span>
+                </button>
+              </div>
             </div>
 
             <div className="chat-messages" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', overflowY: 'auto' }}>

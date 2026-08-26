@@ -83,7 +83,12 @@ router.patch("/notifications/read-all", adminController.markAllAdminNotification
 router.patch("/notifications/:id/read", adminController.markAdminNotificationAsRead);
 router.delete("/notifications/:id", adminController.deleteAdminNotification);
 
-// Admin Chat Unlock Management Routes
+// Newsletter Subscriber Management Routes (Admin Only)
+const newsletterController = require("../controllers/newsletterController");
+router.get("/newsletter/subscribers", newsletterController.getSubscribers);
+router.patch("/newsletter/subscribers/:id/unsubscribe", newsletterController.unsubscribeSubscriber);
+
+// Chat Unlock Overrides
 router.patch("/booking/:id/toggle-chat-unlock", adminController.toggleBookingChatUnlock);
 router.patch("/user/:id/toggle-chat-unlock", adminController.toggleUserChatUnlock);
 

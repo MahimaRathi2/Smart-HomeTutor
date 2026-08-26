@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export const TutorBookingModal = ({ isOpen, onClose, tutorId, tutorName }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [alertMsg, setAlertMsg] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    if (isOpen) {
+      setMessage('');
+      setAlertMsg({ type: '', text: '' });
+      setLoading(false);
+    }
+  }, [isOpen, tutorId]);
 
   if (!isOpen) return null;
 

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { studentApi } from '../../../services/studentApi';
 import { loadRazorpaySdk } from '../../../utils/razorpayLoader';
 
-export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess }) => {
+export const WalletTab = ({ walletBalance = 0, transactions = [], onWalletTopupSuccess, onOpenTopup }) => {
   const [promoCode, setPromoCode] = useState('');
   const [promoMsg, setPromoMsg] = useState('');
+  const [tuitionPayMethod, setTuitionPayMethod] = useState('wallet'); // 'wallet' | 'razorpay'
 
   // Tuition Fee Payment State
   const [tutors, setTutors] = useState([]);
@@ -125,15 +126,14 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
   const handleApplyPromo = () => {
     if (!promoCode.trim()) return;
     if (promoCode.trim().toUpperCase() === 'WELCOME10') {
-      handleTopup(100);
-      setPromoMsg('✅ Promo WELCOME10 applied! ₹100 bonus credits added!');
+      setPromoMsg('✅ Promo WELCOME10 is valid for 10% discount on regular class bookings!');
       setPromoCode('');
     } else {
       setPromoMsg('❌ Invalid or expired promo code.');
     }
   };
 
-  // Razorpay Tuition Fee Payment Flow
+  // Tuition Fee Payment Handler (Smart Wallet OR Razorpay)
   const handlePayTuitionFee = async (e) => {
     e.preventDefault();
     const payAmt = Number(tuitionAmount);
@@ -156,16 +156,50 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
       return;
     }
 
+    // PATH 1: PAY WITH SMART WALLET
+    if (tuitionPayMethod === 'wallet') {
+      if (walletBalance < payAmt) {
+        setPayState({
+          status: 'failed',
+          message: `Insufficient Smart Wallet balance (₹${walletBalance.toFixed(2)}). Required: ₹${payAmt}. Shortfall: ₹${(payAmt - walletBalance).toFixed(2)}.`,
+        });
+        return;
+      }
+
+      setPayState({ status: 'processing', message: 'Debiting Smart Wallet balance...' });
+
+      try {
+        const walletRes = await studentApi.payWithWallet({
+          amount: payAmt,
+          tutorId: selectedTutorId,
+        });
+
+        if (walletRes && walletRes.success) {
+          setPayState({ status: 'success', message: `✅ ₹${payAmt} Tuition Fee Paid Successfully from Smart Wallet!` });
+          if (onWalletTopupSuccess) {
+            onWalletTopupSuccess(walletRes.walletBalance, walletRes.message);
+          }
+          await refreshAllPaymentData(selectedTutorId);
+        } else {
+          setPayState({ status: 'failed', message: walletRes?.message || 'Wallet payment failed.' });
+        }
+      } catch (err) {
+        console.error('Wallet tuition payment error:', err);
+        setPayState({ status: 'failed', message: 'Error processing wallet payment.' });
+      }
+      return;
+    }
+
+    // PATH 2: PAY WITH RAZORPAY ONLINE
     setPayState({ status: 'processing', message: 'Initializing Razorpay Checkout...' });
 
     try {
       const sdkLoaded = await loadRazorpaySdk();
       if (!sdkLoaded) {
-        setPayState({ status: 'failed', message: 'Failed to load Razorpay Checkout SDK. Please check your internet connection.' });
+        setPayState({ status: 'failed', message: 'Failed to load Razorpay Checkout SDK. Please check internet connection.' });
         return;
       }
 
-      // 1. Create Razorpay Order on Backend (Backend verifies max payable limits)
       const orderRes = await studentApi.createPaymentOrder({
         amount: payAmt,
         paymentType: 'Tuition Fee Payment',
@@ -177,7 +211,6 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
         return;
       }
 
-      // 2. Open Razorpay Checkout Options
       const options = {
         key: orderRes.key_id || 'rzp_test_HomeTutorKey',
         amount: orderRes.amount,
@@ -188,7 +221,6 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
         handler: async (response) => {
           setPayState({ status: 'processing', message: 'Verifying payment signature with backend...' });
           try {
-            // 3. Verify Payment Signature on Backend
             const verifyRes = await studentApi.verifyPayment({
               razorpay_order_id: response.razorpay_order_id || orderRes.orderId,
               razorpay_payment_id: response.razorpay_payment_id || `pay_${Date.now()}`,
@@ -200,6 +232,9 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
 
             if (verifyRes.success) {
               setPayState({ status: 'success', message: '✅ Payment Verified & Tuition Fee Paid Successfully!' });
+              if (verifyRes.walletBalance !== undefined && onWalletTopupSuccess) {
+                onWalletTopupSuccess(verifyRes.walletBalance, 'Payment verified!');
+              }
               await refreshAllPaymentData(selectedTutorId);
             } else {
               setPayState({ status: 'failed', message: verifyRes.message || 'Payment signature verification failed.' });
@@ -228,7 +263,6 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
         },
       };
 
-      // Fallback for simulation if Razorpay JS object is mocked in dev environment
       if (window.Razorpay) {
         const rzp = new window.Razorpay(options);
         rzp.on('payment.failed', async (resp) => {
@@ -243,7 +277,6 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
         });
         rzp.open();
       } else {
-        // Fallback simulation mode
         const verifyRes = await studentApi.verifyPayment({
           razorpay_order_id: orderRes.orderId,
           razorpay_payment_id: `pay_sim_${Date.now()}`,
@@ -255,6 +288,9 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
 
         if (verifyRes.success) {
           setPayState({ status: 'success', message: '✅ Payment Verified & Tuition Fee Paid Successfully!' });
+          if (verifyRes.walletBalance !== undefined && onWalletTopupSuccess) {
+            onWalletTopupSuccess(verifyRes.walletBalance, 'Payment verified!');
+          }
           await refreshAllPaymentData(selectedTutorId);
         } else {
           setPayState({ status: 'failed', message: verifyRes.message || 'Payment verification failed.' });
@@ -262,7 +298,7 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
       }
     } catch (err) {
       console.error('Pay Tuition Fee Error:', err);
-      setPayState({ status: 'failed', message: 'Server error initiating payment.' });
+      setPayState({ status: 'failed', message: 'Server error initializing payment.' });
     }
   };
 
@@ -363,6 +399,23 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
         </div>
 
         <form onSubmit={handlePayTuitionFee}>
+          {/* PAYMENT METHOD SELECTOR */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              Select Payment Method:
+            </label>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <label style={{ flex: 1, minWidth: '180px', padding: '10px 14px', borderRadius: '8px', border: `2px solid ${tuitionPayMethod === 'wallet' ? '#0284c7' : '#cbd5e1'}`, background: tuitionPayMethod === 'wallet' ? '#f0f9ff' : '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700 }}>
+                <input type="radio" checked={tuitionPayMethod === 'wallet'} onChange={() => setTuitionPayMethod('wallet')} />
+                <span><i className="fa-solid fa-wallet" style={{ color: '#0284c7' }}></i> Smart Wallet (₹{walletBalance.toFixed(2)})</span>
+              </label>
+              <label style={{ flex: 1, minWidth: '180px', padding: '10px 14px', borderRadius: '8px', border: `2px solid ${tuitionPayMethod === 'razorpay' ? '#0284c7' : '#cbd5e1'}`, background: tuitionPayMethod === 'razorpay' ? '#f0f9ff' : '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700 }}>
+                <input type="radio" checked={tuitionPayMethod === 'razorpay'} onChange={() => setTuitionPayMethod('razorpay')} />
+                <span><i className="fa-solid fa-credit-card" style={{ color: '#0284c7' }}></i> Razorpay (UPI / Card / Net Banking)</span>
+              </label>
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
@@ -410,7 +463,7 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
                 type="submit"
                 className="dash-btn dash-btn-accent"
                 disabled={payState.status === 'processing' || feeSummary.paymentLeft === 0 || feeSummary.totalTuitionFee === 0}
-                style={{ width: '100%', justifyContent: 'center', height: '42px' }}
+                style={{ width: '100%', justifyContent: 'center', height: '42px', background: tuitionPayMethod === 'wallet' ? '#0284c7' : undefined, borderColor: tuitionPayMethod === 'wallet' ? '#0284c7' : undefined }}
               >
                 {payState.status === 'processing' ? (
                   <>
@@ -420,14 +473,42 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
                   <>
                     <i className="fa-solid fa-circle-check"></i> Tuition Fee Paid
                   </>
+                ) : tuitionPayMethod === 'wallet' ? (
+                  <>
+                    <i className="fa-solid fa-wallet"></i> Pay ₹{tuitionAmount || 0} from Wallet
+                  </>
                 ) : (
                   <>
-                    <i className="fa-solid fa-lock"></i> Pay Tuition Fee Now
+                    <i className="fa-solid fa-credit-card"></i> Pay via Razorpay
                   </>
                 )}
               </button>
             </div>
           </div>
+
+          {/* INSUFFICIENT WALLET BALANCE SHORTFALL ALERT */}
+          {tuitionPayMethod === 'wallet' && Number(tuitionAmount || 0) > 0 && walletBalance < Number(tuitionAmount || 0) && (
+            <div style={{ marginTop: '14px', padding: '12px 14px', borderRadius: '10px', background: '#fff1f2', border: '1px solid #fecdd3', color: '#991b1b', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <i className="fa-solid fa-circle-exclamation"></i> Insufficient Smart Wallet Balance
+                </strong>
+                <span style={{ fontSize: '12px', marginTop: '2px', display: 'block' }}>
+                  Available: <strong>₹{walletBalance.toFixed(2)}</strong> &bull; Required: <strong>₹{Number(tuitionAmount).toLocaleString('en-IN')}</strong> &bull; Shortfall: <strong style={{ color: '#dc2626' }}>₹{(Number(tuitionAmount) - walletBalance).toLocaleString('en-IN')}</strong>
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {onOpenTopup && (
+                  <button type="button" onClick={onOpenTopup} className="dash-btn dash-btn-outline" style={{ fontSize: '12px', padding: '4px 10px', background: '#ffffff', color: '#0284c7', borderColor: '#0284c7' }}>
+                    + Top Up Wallet
+                  </button>
+                )}
+                <button type="button" onClick={() => setTuitionPayMethod('razorpay')} className="dash-btn dash-btn-primary" style={{ fontSize: '12px', padding: '4px 10px', background: '#dc2626', borderColor: '#dc2626' }}>
+                  Pay via Razorpay
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       </div>
 
@@ -437,8 +518,8 @@ export const WalletTab = ({ walletBalance, transactions, onWalletTopupSuccess })
           <div className="wallet-balance-title">Smart Wallet Balance</div>
           <div className="wallet-balance-amount">₹{walletBalance ? walletBalance.toFixed(2) : '0.00'}</div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="dash-btn dash-btn-primary" style={{ background: '#ffffff', color: '#0284c7' }} onClick={() => handleTopup(500)}>
-              + Add ₹500 Credits
+            <button className="dash-btn dash-btn-primary" style={{ background: '#ffffff', color: '#0284c7', fontWeight: 800 }} onClick={onOpenTopup}>
+              + Add Credits to Wallet
             </button>
           </div>
 

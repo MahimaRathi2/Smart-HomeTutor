@@ -895,7 +895,13 @@ exports.resolveComplaint = async (req, res) => {
       return res.status(404).json({ success: false, message: "Complaint ticket not found." });
     }
 
-    if (status) complaint.status = status;
+    if (status) {
+      complaint.status = status;
+      if (status === "Resolved" || status === "Closed") {
+        complaint.resolvedAt = new Date();
+        complaint.resolvedBy = req.user ? req.user.id : null;
+      }
+    }
     if (adminReply !== undefined) complaint.adminReply = adminReply;
     await complaint.save();
 
@@ -904,9 +910,17 @@ exports.resolveComplaint = async (req, res) => {
         userId: complaint.user._id,
         title: "Help Desk Ticket Update 🎟️",
         message: `Your ticket regarding '${complaint.subject}' has been updated to '${complaint.status}'${adminReply ? `: "${adminReply}"` : '.'}`,
-        type: "system",
+        type: "dispute",
+        actionUrl: "/dashboard?tab=complaints",
         app: req.app,
       });
+    }
+
+    // Real-Time Socket Broadcast
+    const io = req.app.get("io");
+    if (io && complaint.user) {
+      io.to(`complaint_${complaint._id.toString()}`).emit("complaintStatusUpdated", complaint);
+      io.to(complaint.user._id.toString()).emit("complaintStatusUpdated", complaint);
     }
 
     return res.status(200).json({
@@ -1668,6 +1682,10 @@ exports.getAdminUnreadCount = async (req, res) => {
   }
 };
 
+const getAdminUnreadCountFromDB = async () => {
+  return await Notification.countDocuments({ role: "admin", $or: [{ isRead: false }, { read: false }] });
+};
+
 /**
  * PATCH /api/admin/notifications/:id/read
  */
@@ -1682,7 +1700,15 @@ exports.markAdminNotificationAsRead = async (req, res) => {
     if (!notification) {
       return res.status(404).json({ success: false, message: "Notification not found." });
     }
-    return res.status(200).json({ success: true, message: "Notification marked as read.", notification });
+
+    const unreadCount = await getAdminUnreadCountFromDB();
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("unreadCountChanged", { role: "admin", unreadCount });
+    }
+
+    return res.status(200).json({ success: true, message: "Notification marked as read.", unreadCount, notification });
   } catch (err) {
     console.error("Mark Admin Notification Read Error:", err);
     return res.status(500).json({ success: false, message: "Server error updating notification." });
@@ -1695,7 +1721,13 @@ exports.markAdminNotificationAsRead = async (req, res) => {
 exports.markAllAdminNotificationsAsRead = async (req, res) => {
   try {
     await Notification.updateMany({ role: "admin" }, { isRead: true, read: true });
-    return res.status(200).json({ success: true, message: "All admin notifications marked as read." });
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("unreadCountChanged", { role: "admin", unreadCount: 0 });
+    }
+
+    return res.status(200).json({ success: true, unreadCount: 0, message: "All admin notifications marked as read." });
   } catch (err) {
     console.error("Mark All Admin Notifications Read Error:", err);
     return res.status(500).json({ success: false, message: "Server error marking notifications as read." });
@@ -1709,7 +1741,15 @@ exports.deleteAdminNotification = async (req, res) => {
   try {
     const { id } = req.params;
     await Notification.findByIdAndDelete(id);
-    return res.status(200).json({ success: true, message: "Notification deleted successfully." });
+
+    const unreadCount = await getAdminUnreadCountFromDB();
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("unreadCountChanged", { role: "admin", unreadCount });
+    }
+
+    return res.status(200).json({ success: true, unreadCount, message: "Notification deleted successfully." });
   } catch (err) {
     console.error("Delete Admin Notification Error:", err);
     return res.status(500).json({ success: false, message: "Server error deleting notification." });

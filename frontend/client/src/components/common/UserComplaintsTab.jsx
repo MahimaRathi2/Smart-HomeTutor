@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { ComplaintChatModal } from './ComplaintChatModal';
 
 export const UserComplaintsTab = ({ roleName = 'Student' }) => {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeChatTicket, setActiveChatTicket] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -242,15 +244,73 @@ export const UserComplaintsTab = ({ roleName = 'Student' }) => {
                   </div>
                 )}
 
-                {/* DATE FOOTER */}
-                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #f1f5f9', fontSize: '12px', color: '#64748b', textAlign: 'right' }}>
-                  Submitted on {new Date(ticket.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                {/* DATE & CONVERSATION ACTION FOOTER */}
+                <div
+                  style={{
+                    marginTop: '14px',
+                    paddingTop: '12px',
+                    borderTop: '1px solid #f1f5f9',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                  }}
+                >
+                  <button
+                    className="dash-btn dash-btn-primary"
+                    onClick={() => setActiveChatTicket(ticket)}
+                    style={{
+                      fontSize: '12.5px',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      background: '#0284c7',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <i className="fa-solid fa-comments"></i> Open Conversation
+                    {ticket.unreadCountUser > 0 && (
+                      <span
+                        style={{
+                          background: '#ef4444',
+                          color: '#ffffff',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          marginLeft: '4px',
+                        }}
+                      >
+                        🔴 {ticket.unreadCountUser} new
+                      </span>
+                    )}
+                  </button>
+
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    Submitted on {new Date(ticket.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* COMPLAINT CHAT MODAL */}
+      <ComplaintChatModal
+        complaint={activeChatTicket}
+        isOpen={!!activeChatTicket}
+        onClose={() => {
+          setActiveChatTicket(null);
+          fetchUserComplaints();
+        }}
+        currentUserRole={roleName}
+        onComplaintUpdated={(updated) => {
+          setComplaints((prev) => prev.map((c) => (c._id === updated._id ? { ...c, ...updated } : c)));
+        }}
+      />
 
       {/* CREATE COMPLAINT MODAL */}
       {isModalOpen && (

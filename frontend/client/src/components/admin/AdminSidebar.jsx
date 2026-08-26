@@ -6,7 +6,9 @@ export const AdminSidebar = ({
   adminName,
   adminEmail,
   onOpenAnnouncement,
-  onOpenSecurityCenter
+  onOpenSecurityCenter,
+  isOpenMobile,
+  onCloseMobile,
 }) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -24,21 +26,46 @@ export const AdminSidebar = ({
     };
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 5000);
+
+    const handleCustomEvent = (e) => {
+      if (e.detail && typeof e.detail.unreadCount === 'number') {
+        if (!e.detail.role || e.detail.role === 'admin') {
+          setUnreadCount(e.detail.unreadCount);
+          return;
+        }
+      }
+      fetchUnreadCount();
+    };
+
+    window.addEventListener('unreadCountUpdated', handleCustomEvent);
+    window.addEventListener('refreshNotifications', fetchUnreadCount);
+
     if (window.socket) {
       window.socket.on('receiveNotification', fetchUnreadCount);
       window.socket.on('receiveAdminNotification', fetchUnreadCount);
-      return () => {
-        clearInterval(interval);
+      window.socket.on('unreadCountChanged', fetchUnreadCount);
+    }
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('unreadCountUpdated', handleCustomEvent);
+      window.removeEventListener('refreshNotifications', fetchUnreadCount);
+      if (window.socket) {
         window.socket.off('receiveNotification', fetchUnreadCount);
         window.socket.off('receiveAdminNotification', fetchUnreadCount);
-      };
-    }
-    return () => clearInterval(interval);
+        window.socket.off('unreadCountChanged', fetchUnreadCount);
+      }
+    };
   }, []);
 
   const getInitials = (name) => {
     if (!name) return 'AD';
     return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const handleSelectTab = (id) => {
+    onSelectTab(id);
+    if (onCloseMobile) onCloseMobile();
   };
 
   const navItems = [
@@ -52,11 +79,23 @@ export const AdminSidebar = ({
     { id: 'payment-history', label: 'Payment History', icon: 'fa-clock-rotate-left' },
     { id: 'catalog', label: 'Catalog & Boards', icon: 'fa-layer-group' },
     { id: 'disputes', label: 'Disputes & Complaints', icon: 'fa-scale-balanced' },
+    { id: 'newsletter', label: 'Newsletter Subscribers', icon: 'fa-envelope-open-text' },
     { id: 'blogs', label: 'Blog Articles', icon: 'fa-newspaper' },
   ];
 
   return (
-    <aside className="dashboard-sidebar">
+    <aside className={`dashboard-sidebar ${isOpenMobile ? 'mobile-open' : ''}`}>
+      {onCloseMobile && (
+        <button
+          type="button"
+          className="mobile-sidebar-close-btn"
+          onClick={onCloseMobile}
+          aria-label="Close Admin Management Menu"
+          title="Close Menu"
+        >
+          <i className="fa-solid fa-xmark"></i>
+        </button>
+      )}
       <div>
         <div className="sidebar-user">
           <div className="user-avatar" style={{ background: '#b45309' }}>
@@ -75,7 +114,7 @@ export const AdminSidebar = ({
             <li
               key={item.id}
               className={`dash-tab-btn ${activeTab === item.id ? 'active' : ''}`}
-              onClick={() => onSelectTab(item.id)}
+              onClick={() => handleSelectTab(item.id)}
               style={{ cursor: 'pointer' }}
             >
               <a href={`#${item.id}`} onClick={(e) => e.preventDefault()} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
@@ -93,12 +132,12 @@ export const AdminSidebar = ({
         <div className="sidebar-menu-title" style={{ marginTop: '24px' }}>Security & Broadcasts</div>
         <ul className="sidebar-menu">
           <li>
-            <a href="#announcements" onClick={(e) => { e.preventDefault(); onOpenAnnouncement(); }}>
+            <a href="#announcements" onClick={(e) => { e.preventDefault(); onOpenAnnouncement(); if (onCloseMobile) onCloseMobile(); }}>
               <i className="fa-solid fa-bullhorn"></i> Send Announcement
             </a>
           </li>
           <li>
-            <a href="#security" onClick={(e) => { e.preventDefault(); onOpenSecurityCenter(); }}>
+            <a href="#security" onClick={(e) => { e.preventDefault(); onOpenSecurityCenter(); if (onCloseMobile) onCloseMobile(); }}>
               <i className="fa-solid fa-shield-halved"></i> Security Center
             </a>
           </li>

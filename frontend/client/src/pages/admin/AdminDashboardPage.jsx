@@ -11,6 +11,7 @@ import { AdminFinanceTab } from '../../components/admin/tabs/AdminFinanceTab';
 import { AdminPaymentHistoryTab } from '../../components/admin/tabs/AdminPaymentHistoryTab';
 import { AdminCatalogTab } from '../../components/admin/tabs/AdminCatalogTab';
 import { AdminDisputesTab } from '../../components/admin/tabs/AdminDisputesTab';
+import { AdminNewsletterTab } from '../../components/admin/tabs/AdminNewsletterTab';
 import { AdminBlogsTab } from '../../components/admin/tabs/AdminBlogsTab';
 import { AdminNotificationsTab } from '../../components/admin/tabs/AdminNotificationsTab';
 import { AdminDemoRequestsTab } from '../../components/admin/tabs/AdminDemoRequestsTab';
@@ -32,6 +33,7 @@ const ADMIN_VALID_TABS = [
   'payment-history',
   'catalog',
   'disputes',
+  'newsletter',
   'blogs',
 ];
 
@@ -296,8 +298,17 @@ export const AdminDashboardPage = () => {
     window.open(exportUrl, '_blank');
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
     <div className="dashboard-wrapper">
+      {/* MOBILE BACKDROP OVERLAY */}
+      <div
+        className={`sidebar-overlay ${isMobileMenuOpen ? 'active' : ''}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+
       {/* SIDEBAR */}
       <AdminSidebar
         activeTab={activeTab}
@@ -306,6 +317,8 @@ export const AdminDashboardPage = () => {
         adminEmail="useradmin2005@gmail.com"
         onOpenAnnouncement={() => setIsAnnouncementOpen(true)}
         onOpenSecurityCenter={() => setIsSecurityCenterOpen(true)}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* MAIN CONTENT AREA */}
@@ -314,6 +327,7 @@ export const AdminDashboardPage = () => {
           onOpenAnnouncement={() => setIsAnnouncementOpen(true)}
           onExportPdf={handleExportPdf}
           onOpenScheduleClass={() => setIsScheduleModalOpen(true)}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
 
@@ -394,6 +408,10 @@ export const AdminDashboardPage = () => {
 
             {activeTab === 'disputes' && (
               <AdminDisputesTab />
+            )}
+
+            {activeTab === 'newsletter' && (
+              <AdminNewsletterTab />
             )}
 
             {activeTab === 'blogs' && (

@@ -3,14 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import { SubmitRequestModal } from '../../components/common/SubmitRequestModal';
+import { RegularClassPaymentModal } from '../../components/tutor/RegularClassPaymentModal';
+import { isDemoCompletedForTutor } from '../../utils/demoEligibility';
 
 export const FindTutorsPage = () => {
   const navigate = useNavigate();
   const [tutors, setTutors] = useState([]);
+  const [completedDemoTutorIds, setCompletedDemoTutorIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userGeoLocation, setUserGeoLocation] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [selectedRegularTutor, setSelectedRegularTutor] = useState(null);
+  const [isRegularModalOpen, setIsRegularModalOpen] = useState(false);
 
   const getInitialParam = (key) => {
     if (typeof window === 'undefined') return 'all';
@@ -96,6 +101,16 @@ export const FindTutorsPage = () => {
         setTutors(data.tutors);
       } else {
         setTutors([]);
+      }
+
+      try {
+        const demoRes = await fetch('/api/student/completed-demo-tutors');
+        const demoData = await demoRes.json();
+        if (demoData.success && demoData.completedDemoTutorIds) {
+          setCompletedDemoTutorIds(demoData.completedDemoTutorIds);
+        }
+      } catch (e) {
+        // Non-student or guest user
       }
     } catch (err) {
       console.error('Error fetching tutors:', err);
@@ -203,27 +218,33 @@ export const FindTutorsPage = () => {
         }
       } else {
         const errorMsg = data.message || 'Authentication required. Please log in.';
+        const isAuthError = res.status === 401 || (data.message && (data.message.toLowerCase().includes('log in') || data.message.toLowerCase().includes('authentication')));
         if (window.showCustomAlert) {
-          window.showCustomAlert(errorMsg, 'Attention Needed', 'warning', () => {
-            navigate('/login');
-          });
+          window.showCustomAlert(
+            errorMsg,
+            'Attention Needed',
+            'warning',
+            isAuthError ? () => navigate('/login') : undefined
+          );
         } else {
           alert('⚠️ ' + errorMsg);
-          navigate('/login');
+          if (isAuthError) navigate('/login');
         }
       }
     } catch (err) {
       console.error(err);
-      const errorMsg = 'Error sending booking request. Please check if you are logged in.';
+      const errorMsg = 'Error sending booking request. Please try again.';
       if (window.showCustomAlert) {
-        window.showCustomAlert(errorMsg, 'Attention Needed', 'error', () => {
-          navigate('/login');
-        });
+        window.showCustomAlert(errorMsg, 'Attention Needed', 'error');
       } else {
         alert('❌ ' + errorMsg);
-        navigate('/login');
       }
     }
+  };
+
+  const handleRegularClass = (tutor) => {
+    setSelectedRegularTutor(tutor);
+    setIsRegularModalOpen(true);
   };
 
   const openRequestTutorModal = () => {
@@ -545,17 +566,30 @@ export const FindTutorsPage = () => {
                         <button
                           type="button"
                           className="ft-btn ft-btn-outline ft-btn-map"
-                          onClick={() => openGoogleMap(lat, lng, tutorName)}
+                          onClick={() => handleRegularClass(tutor)}
+                          style={{ borderColor: '#0284c7', color: '#0284c7', fontWeight: '800' }}
                         >
-                          <i className="fa-solid fa-map-location-dot"></i> View on Map
+                          <i className="fa-solid fa-graduation-cap"></i> Regular Class
                         </button>
-                        <button
-                          type="button"
-                          className="ft-btn ft-btn-primary ft-btn-book"
-                          onClick={() => handleBookDemo(tutor._id, tutorName)}
-                        >
-                          <i className="fa-solid fa-calendar-check"></i> Book Demo Class
-                        </button>
+                        {isDemoCompletedForTutor(tutor, completedDemoTutorIds) ? (
+                          <button
+                            type="button"
+                            className="ft-btn ft-btn-outline ft-btn-book"
+                            disabled
+                            style={{ opacity: 0.7, cursor: 'not-allowed', background: '#f1f5f9', color: '#64748b', borderColor: '#cbd5e1' }}
+                            title="You have already attended a demo class with this tutor. You can book Regular Classes instead."
+                          >
+                            <i className="fa-solid fa-circle-check"></i> Demo Completed ✓
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="ft-btn ft-btn-primary ft-btn-book"
+                            onClick={() => handleBookDemo(tutor._id, tutorName)}
+                          >
+                            <i className="fa-solid fa-calendar-check"></i> Book Demo Class
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -569,6 +603,13 @@ export const FindTutorsPage = () => {
       <SubmitRequestModal
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
+        onSuccess={(msg) => showToast(msg)}
+      />
+
+      <RegularClassPaymentModal
+        isOpen={isRegularModalOpen}
+        onClose={() => setIsRegularModalOpen(false)}
+        tutor={selectedRegularTutor}
         onSuccess={(msg) => showToast(msg)}
       />
 

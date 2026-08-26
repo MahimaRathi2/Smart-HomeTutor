@@ -60,6 +60,15 @@ exports.getUnreadCount = async (req, res) => {
   }
 };
 
+const getUnreadCountForUser = async (userId) => {
+  return await Notification.countDocuments({
+    user: userId,
+    type: { $ne: "announcement" },
+    title: { $not: /^📢/ },
+    $or: [{ isRead: false }, { read: false }],
+  });
+};
+
 /**
  * Mark a single notification as read
  */
@@ -76,9 +85,17 @@ exports.markAsRead = async (req, res) => {
     notification.read = true;
     await notification.save();
 
+    const unreadCount = await getUnreadCountForUser(req.user.id);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(req.user.id.toString()).emit("unreadCountChanged", { unreadCount });
+    }
+
     return res.status(200).json({
       success: true,
       message: "Notification marked as read.",
+      unreadCount,
       notification,
     });
   } catch (err) {
@@ -94,8 +111,14 @@ exports.markAllAsRead = async (req, res) => {
   try {
     await Notification.updateMany({ user: req.user.id }, { isRead: true, read: true });
 
+    const io = req.app.get("io");
+    if (io) {
+      io.to(req.user.id.toString()).emit("unreadCountChanged", { unreadCount: 0 });
+    }
+
     return res.status(200).json({
       success: true,
+      unreadCount: 0,
       message: "All notifications marked as read.",
     });
   } catch (err) {
@@ -116,9 +139,17 @@ exports.deleteNotification = async (req, res) => {
       return res.status(404).json({ success: false, message: "Notification not found or unauthorized." });
     }
 
+    const unreadCount = await getUnreadCountForUser(req.user.id);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(req.user.id.toString()).emit("unreadCountChanged", { unreadCount });
+    }
+
     return res.status(200).json({
       success: true,
       message: "Notification deleted successfully.",
+      unreadCount,
     });
   } catch (err) {
     console.error("Delete Notification Error:", err);

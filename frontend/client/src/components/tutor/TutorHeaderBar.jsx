@@ -1,11 +1,22 @@
 import React from 'react';
 
-export const TutorHeaderBar = ({ onRequestPayout, onRequestCertificate, onEditProfile, isApproved = true }) => {
+export const TutorHeaderBar = ({ onRequestPayout, onRequestCertificate, onEditProfile, isApproved = true, onToggleMobileMenu }) => {
   return (
     <div className="dashboard-header-bar">
-      <div className="dashboard-title">
-        <h1>Educator Control Panel</h1>
-        <p>Manage your teaching schedule, accept booking requests, review student attendance, and request payouts.</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <button
+          type="button"
+          className="mobile-hamburger-btn"
+          onClick={onToggleMobileMenu}
+          aria-label="Open Tutor Workspace Menu"
+          title="Open Tutor Workspace Menu"
+        >
+          <i className="fa-solid fa-bars"></i>
+        </button>
+        <div className="dashboard-title">
+          <h1>Educator Control Panel</h1>
+          <p>Manage your teaching schedule, accept booking requests, review student attendance, and request payouts.</p>
+        </div>
       </div>
       <div className="dashboard-actions" style={{ display: 'flex', gap: '10px' }}>
         <button

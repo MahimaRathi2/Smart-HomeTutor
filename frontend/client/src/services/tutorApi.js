@@ -83,5 +83,13 @@ export const tutorApi = {
       body: JSON.stringify(data)
     });
     return res.json();
+  },
+
+  // Fetch logged-in tutor referral data & history
+  async getReferrals() {
+    const res = await fetch('/api/tutor/referrals', {
+      headers: { 'Accept': 'application/json' }
+    });
+    return res.json();
   }
 };

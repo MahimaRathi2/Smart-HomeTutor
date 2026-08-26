@@ -102,6 +102,28 @@ export const studentApi = {
     return await res.json();
   },
 
+  // Get Completed Demo Tutor IDs
+  getCompletedDemoTutors: async () => {
+    try {
+      const res = await fetch('/api/student/completed-demo-tutors');
+      return await res.json();
+    } catch (err) {
+      console.error('getCompletedDemoTutors error:', err);
+      return { success: false, completedDemoTutorIds: [] };
+    }
+  },
+
+  // Get Pending Demo Tutor IDs
+  getPendingDemoTutors: async () => {
+    try {
+      const res = await fetch('/api/student/pending-demo-tutors');
+      return await res.json();
+    } catch (err) {
+      console.error('getPendingDemoTutors error:', err);
+      return { success: false, pendingDemoTutorIds: [] };
+    }
+  },
+
   // Get Tutor Fee Summary
   getTutorFeeSummary: async (tutorId) => {
     const res = await fetch(`/api/student/tutor-fee-summary?tutorId=${tutorId}`);
@@ -153,6 +175,15 @@ export const studentApi = {
 
   verifyPayment: async (payload) => {
     const res = await fetch('/api/payment/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  },
+
+  payWithWallet: async (payload) => {
+    const res = await fetch('/api/payment/pay-with-wallet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

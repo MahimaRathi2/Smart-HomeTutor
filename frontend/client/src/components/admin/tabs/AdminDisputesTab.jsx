@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../../services/adminApi';
+import { ComplaintChatModal } from '../../common/ComplaintChatModal';
 
 export const AdminDisputesTab = () => {
   const [complaints, setComplaints] = useState([]);
@@ -8,6 +9,7 @@ export const AdminDisputesTab = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [updatingId, setUpdatingId] = useState(null);
+  const [activeChatTicket, setActiveChatTicket] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
 
   // Draft responses map: { [complaintId]: { status: string, adminReply: string } }
@@ -386,7 +388,38 @@ export const AdminDisputesTab = () => {
                       ></textarea>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                      <button
+                        className="dash-btn dash-btn-primary"
+                        onClick={() => setActiveChatTicket(item)}
+                        style={{
+                          fontSize: '12.5px',
+                          padding: '7px 16px',
+                          borderRadius: '8px',
+                          background: '#0284c7',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <i className="fa-solid fa-comments"></i> Open Conversation
+                        {item.unreadCountAdmin > 0 && (
+                          <span
+                            style={{
+                              background: '#ef4444',
+                              color: '#ffffff',
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              padding: '1px 6px',
+                              borderRadius: '10px',
+                              marginLeft: '4px',
+                            }}
+                          >
+                            🔴 {item.unreadCountAdmin} unread
+                          </span>
+                        )}
+                      </button>
+
                       <button
                         className="dash-btn dash-btn-primary"
                         onClick={() => handleSaveComplaint(item._id)}
@@ -411,6 +444,20 @@ export const AdminDisputesTab = () => {
           </div>
         )}
       </div>
+
+      {/* COMPLAINT CHAT MODAL FOR ADMIN */}
+      <ComplaintChatModal
+        complaint={activeChatTicket}
+        isOpen={!!activeChatTicket}
+        onClose={() => {
+          setActiveChatTicket(null);
+          fetchComplaints();
+        }}
+        currentUserRole="admin"
+        onComplaintUpdated={(updated) => {
+          setComplaints((prev) => prev.map((c) => (c._id === updated._id ? { ...c, ...updated } : c)));
+        }}
+      />
     </div>
   );
 };

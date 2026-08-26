@@ -38,6 +38,12 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    complaint: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Complaint",
+      default: null,
+      index: true,
+    },
     status: {
       type: String,
       enum: ["sent", "delivered", "seen"],
@@ -48,5 +54,7 @@ const messageSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+messageSchema.index({ complaint: 1, createdAt: 1 });
 
 module.exports = mongoose.model("Message", messageSchema);

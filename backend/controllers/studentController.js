@@ -16,6 +16,7 @@ const PDFDocument = require("pdfkit");
 const mongoose = require("mongoose");
 const { createNotification, createAdminNotification } = require("../utils/notificationHelper");
 const { logUserActivity } = require("../utils/activityLogHelper");
+const referralController = require("./referralController");
 
 
 exports.bookTutor = async (req, res) => {
@@ -33,29 +34,71 @@ exports.bookTutor = async (req, res) => {
     let tutorProfile = null;
     if (tutorProfileId && mongoose.Types.ObjectId.isValid(tutorProfileId)) {
       tutorProfile = await TutorProfile.findById(tutorProfileId).populate("user");
-    }
-
-    if (!tutorProfile) {
-      tutorProfile = await TutorProfile.findOne().populate("user");
+      if (!tutorProfile) {
+        tutorProfile = await TutorProfile.findOne({ user: tutorProfileId }).populate("user");
+      }
     }
 
     if (!tutorProfile || !tutorProfile.user) {
       return res.status(404).json({
         success: false,
-        message: "No registered tutor available in database yet.",
+        message: "Specified tutor profile not found in database.",
       });
+    }
+
+    const isTrialRequest = isTrial !== undefined ? Boolean(isTrial) : true;
+    const isPaidBooking = req.body.isPaid || req.body.paymentId;
+
+    // Enforce One-Time Demo Class Restriction Per Student-Tutor Pair
+    if (isTrialRequest) {
+      const completedDemoBooking = await BookingRequest.exists({
+        student: student._id,
+        $or: [{ tutor: tutorProfile.user._id }, { tutorProfile: tutorProfile._id }],
+        isTrial: true,
+        $or: [{ status: "Completed" }, { homeVisitStatus: "Completed" }],
+      });
+
+      const completedDemoSchedule = await ClassSchedule.exists({
+        student: student._id,
+        tutor: tutorProfile.user._id,
+        isTrial: true,
+        status: "Completed",
+      });
+
+      if (completedDemoBooking || completedDemoSchedule) {
+        return res.status(400).json({
+          success: false,
+          message: "You have already attended a demo class with this tutor. Please select Regular Classes instead.",
+        });
+      }
     }
 
     const existing = await BookingRequest.findOne({
       student: student._id,
       tutorProfile: tutorProfile._id,
+      isTrial: isTrialRequest,
       status: { $in: ["Pending", "Pending Admin Approval", "Pending Tutor Acceptance"] },
     });
 
     if (existing) {
+      // If it's a paid regular class booking, update the existing request with payment details instead of blocking!
+      if (!isTrialRequest && isPaidBooking) {
+        existing.message = message || existing.message;
+        existing.status = "Pending Admin Approval";
+        await existing.save();
+
+        return res.status(200).json({
+          success: true,
+          message: `Regular class booking for ${tutorProfile.user.name || "this tutor"} updated successfully with your payment!`,
+          booking: existing,
+        });
+      }
+
       return res.status(400).json({
         success: false,
-        message: `You already have a pending demo class request for ${tutorProfile.user.name || "this tutor"}.`,
+        message: isTrialRequest
+          ? `You already have a pending demo class request for ${tutorProfile.user.name || "this tutor"}.`
+          : `You already have a pending regular class request for ${tutorProfile.user.name || "this tutor"}.`,
       });
     }
 
@@ -396,46 +439,10 @@ exports.getStudentReviewForTutor = async (req, res) => {
   }
 };
 exports.topupWallet = async (req, res) => {
-  try {
-    const { amount } = req.body;
-    const user = await User.findById(req.user.id);
-
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ success: false, message: "Invalid topup amount." });
-    }
-
-    user.walletBalance = (user.walletBalance || 0) + Number(amount);
-    await user.save();
-
-    const transaction = await Transaction.create({
-      user: user._id,
-      type: "Wallet Topup",
-      amount: Number(amount),
-      description: "Added funds to wallet",
-      status: "Completed",
-    });
-
-    await createNotification({
-      userId: user._id,
-      title: "Wallet Top-up Successful",
-      message: `₹${amount} added to your Smart HomeTutor wallet. New Balance: ₹${user.walletBalance}`,
-      type: "payment",
-      app: req.app,
-    });
-
-    const topupUserName = user.name || user.email || "User";
-    await logUserActivity(user._id, `${topupUserName} topped up wallet with ₹${amount}`, req.ip);
-
-    return res.status(200).json({
-      success: true,
-      message: `₹${amount} successfully added to your wallet!`,
-      walletBalance: user.walletBalance,
-      transaction,
-    });
-  } catch (err) {
-    console.error("Topup Wallet Error:", err);
-    return res.status(500).json({ success: false, message: "Server Error" });
-  }
+  return res.status(400).json({
+    success: false,
+    message: "Direct unverified wallet top-ups are disabled. All wallet credits must be processed through Razorpay payment verification.",
+  });
 };
 
 exports.getStudentDashboardStats = async (req, res) => {
@@ -736,54 +743,7 @@ exports.downloadCertificatePDF = async (req, res) => {
   }
 };
 
-exports.getReferrals = async (req, res) => {
-  try {
-    const student = await User.findById(req.user.id).select("referralCode referralEarnings name");
-    let code = student ? student.referralCode : "";
-    if (student && !code) {
-      code = "REF-" + student._id.toString().slice(-6).toUpperCase();
-      student.referralCode = code;
-      await student.save();
-    }
-
-    const referredUsers = code
-      ? await User.find({ referredBy: code }).select("name email createdAt role referralRewardStatus")
-      : [];
-
-    const formattedUsers = referredUsers.map((u) => {
-      const isRewarded = u.referralRewardStatus === "Rewarded";
-      return {
-        _id: u._id,
-        name: u.name,
-        email: u.email,
-        createdAt: u.createdAt,
-        role: u.role,
-        referralRewardStatus: u.referralRewardStatus || "Pending",
-        studentReward: isRewarded ? 50 : 0,
-        referrerReward: isRewarded ? 100 : 0,
-        statusReason: isRewarded
-          ? "Completed first tuition payment"
-          : "Waiting for first successful tuition payment",
-      };
-    });
-
-    const protocol = req.protocol || "http";
-    const host = req.get("host") || "localhost:5173";
-    const referralLink = `${protocol}://${host}/signup?ref=${code}`;
-
-    return res.status(200).json({
-      success: true,
-      referralCode: code || "",
-      referralLink: referralLink,
-      referralEarnings: student ? student.referralEarnings || 0 : 0,
-      totalReferred: referredUsers.length,
-      referredUsers: formattedUsers,
-    });
-  } catch (err) {
-    console.error("Get Referrals Error:", err);
-    return res.status(500).json({ success: false, message: "Server Error" });
-  }
-};
+exports.getReferrals = referralController.getReferrals;
 
 exports.getStudentClassSchedule = async (req, res) => {
   try {
@@ -794,55 +754,55 @@ exports.getStudentClassSchedule = async (req, res) => {
       .populate("tutor", "name email phone")
       .sort({ date: 1, startTime: 1 });
 
-    // 2. Fetch accepted booking requests
-    const acceptedBookings = await BookingRequest.find({ student: studentId, status: "Accepted" })
+    // 2. Fetch accepted/approved booking requests for active tutor relationships
+    const acceptedBookings = await BookingRequest.find({
+      student: studentId,
+      status: { $in: ["Accepted", "Approved", "Confirmed"] },
+    })
       .populate("tutor", "name email phone")
       .populate({
         path: "tutorProfile",
-        select: "subjects qualification location fee mode",
+        select: "subjects qualification location fee mode primarySubject",
       })
       .sort({ updatedAt: -1 });
 
-    // Combine or fallback if no schedules exist yet
-    let combinedSchedules = [...schedules];
-    if (combinedSchedules.length === 0 && acceptedBookings.length > 0) {
-      combinedSchedules = acceptedBookings.map((b) => ({
-        _id: b._id,
-        subject: (b.tutorProfile && b.tutorProfile.subjects && b.tutorProfile.subjects.length) ? b.tutorProfile.subjects.join(", ") : "Tuition Class",
-        tutor: b.tutor,
-        frequency: "Weekly",
-        days: "Mon, Wed, Fri",
-        startTime: "05:00 PM",
-        endTime: "06:00 PM",
-        date: b.updatedAt || b.createdAt,
-        mode: b.isHomeVisit ? "Offline" : (b.tutorProfile?.mode || "Online"),
-        status: "Scheduled",
-        isBookingFallback: true,
-      }));
-    }
+    const scheduledBookingIds = new Set(
+      schedules.filter((s) => s.booking).map((s) => s.booking.toString())
+    );
 
-    // Ensure there is at least one sample offline class demo for visual reference
-    const hasOffline = combinedSchedules.some((s) => s.mode && s.mode.toLowerCase() === "offline");
-    if (!hasOffline) {
-      combinedSchedules.push({
-        _id: "demo_offline_class_102",
-        subject: "Physics & Science Laboratory (Home Visit Demo)",
-        tutor: { name: "Prof. Rajesh Sharma", email: "sharma@hometutor.com", phone: "+91 9811223344" },
-        frequency: "Weekly",
-        days: "Tue, Thu",
-        startTime: "04:00 PM",
-        endTime: "05:30 PM",
-        date: new Date(Date.now() + 86400000),
-        mode: "Offline",
-        status: "Scheduled",
+    // 3. Synthesize schedule items for accepted bookings without an explicit ClassSchedule entry
+    const synthesizedSchedules = acceptedBookings
+      .filter((b) => !scheduledBookingIds.has(b._id.toString()))
+      .map((b) => {
+        let subjStr = "Tuition Class";
+        if (b.tutorProfile && Array.isArray(b.tutorProfile.subjects) && b.tutorProfile.subjects.length > 0) {
+          subjStr = b.tutorProfile.subjects.filter(Boolean).join(", ");
+        } else if (b.tutorProfile && b.tutorProfile.primarySubject) {
+          subjStr = b.tutorProfile.primarySubject;
+        }
+
+        return {
+          _id: b._id,
+          subject: subjStr,
+          tutor: b.tutor,
+          frequency: "Regular Session",
+          days: "Scheduled Days",
+          startTime: "05:00 PM",
+          endTime: "06:00 PM",
+          date: b.updatedAt || b.createdAt,
+          mode: b.isHomeVisit ? "Offline" : (b.tutorProfile?.mode || "Online"),
+          status: "Scheduled",
+          isBookingFallback: true,
+        };
       });
-    }
+
+    const combinedSchedules = [...schedules, ...synthesizedSchedules];
 
     return res.status(200).json({
       success: true,
       schedules: combinedSchedules,
       officialSchedulesCount: schedules.length,
-      acceptedBookings,
+      acceptedBookingsCount: acceptedBookings.length,
     });
   } catch (err) {
     console.error("Get Student Class Schedule Error:", err);
@@ -1131,6 +1091,248 @@ exports.getStudentSubmittedHomework = async (req, res) => {
     return res.status(200).json({ success: true, homeworks });
   } catch (err) {
     console.error("Get Student Submitted Homework Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * GET /api/student/my-tutors
+ * Retrieve all tutors with an active, verified Regular Classes relationship for the logged-in student.
+ */
+exports.getMyTutors = async (req, res) => {
+  try {
+    const userId = req.user.id; // Strictly identify authenticated student from req.user.id
+
+    const studentUser = await User.findById(userId);
+    if (!studentUser) {
+      return res.status(404).json({ success: false, message: "Student account not found." });
+    }
+
+    // 1. Find all verified fee payments made by this student
+    const verifiedPayments = await Payment.find({
+      user: userId,
+      paymentStatus: { $in: ["Success", "Paid", "Completed"] },
+      paymentType: { $in: ["Tuition Fee Payment", "Tuition Invoice Payment"] },
+      tutor: { $exists: true, $ne: null },
+    })
+      .populate("tutor", "name email role profileImage avatar")
+      .populate({
+        path: "booking",
+        select: "tutor tutorProfile subject status isTrial",
+        populate: [
+          { path: "tutor", select: "name email role profileImage avatar" },
+          {
+            path: "tutorProfile",
+            select: "primarySubject user hourlyRate rating subjects",
+            populate: { path: "user", select: "name email role profileImage avatar" },
+          },
+        ],
+      })
+      .sort({ createdAt: -1 });
+
+    // 2. Find all confirmed / accepted / paid regular class booking requests for this student
+    const confirmedBookings = await BookingRequest.find({
+      student: userId,
+      isTrial: false,
+    })
+      .populate("tutor", "name email role profileImage avatar")
+      .populate({
+        path: "tutorProfile",
+        select: "primarySubject user hourlyRate rating subjects",
+        populate: { path: "user", select: "name email role profileImage avatar" },
+      })
+      .sort({ createdAt: -1 });
+
+    const rawTutorIds = new Set();
+
+    verifiedPayments.forEach((p) => {
+      if (p.tutor) {
+        const idStr = p.tutor._id ? p.tutor._id.toString() : p.tutor.toString();
+        rawTutorIds.add(idStr);
+      }
+      if (p.booking) {
+        if (p.booking.tutor) {
+          const bTutorId = p.booking.tutor._id ? p.booking.tutor._id.toString() : p.booking.tutor.toString();
+          rawTutorIds.add(bTutorId);
+        }
+        if (p.booking.tutorProfile) {
+          const bTpId = p.booking.tutorProfile._id ? p.booking.tutorProfile._id.toString() : p.booking.tutorProfile.toString();
+          rawTutorIds.add(bTpId);
+          if (p.booking.tutorProfile.user) {
+            const bTpUserId = p.booking.tutorProfile.user._id ? p.booking.tutorProfile.user._id.toString() : p.booking.tutorProfile.user.toString();
+            rawTutorIds.add(bTpUserId);
+          }
+        }
+      }
+    });
+
+    for (const b of confirmedBookings) {
+      const tutorUserId = b.tutor
+        ? (b.tutor._id ? b.tutor._id.toString() : b.tutor.toString())
+        : (b.tutorProfile && b.tutorProfile.user
+        ? (b.tutorProfile.user._id ? b.tutorProfile.user._id.toString() : b.tutorProfile.user.toString())
+        : null);
+
+      const tutorProfId = b.tutorProfile ? (b.tutorProfile._id ? b.tutorProfile._id.toString() : b.tutorProfile.toString()) : null;
+
+      // Check if there is a verified payment for this booking or tutor
+      const hasPayment = await Payment.exists({
+        user: userId,
+        $or: [
+          { booking: b._id },
+          ...(tutorUserId ? [{ tutor: tutorUserId }] : []),
+          ...(tutorProfId ? [{ tutor: tutorProfId }] : []),
+        ],
+        paymentStatus: { $in: ["Success", "Paid", "Completed"] },
+      });
+
+      if (hasPayment || b.isChatUnlocked) {
+        if (tutorUserId) rawTutorIds.add(tutorUserId);
+        if (tutorProfId) rawTutorIds.add(tutorProfId);
+      }
+    }
+
+    if (rawTutorIds.size === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        tutors: [],
+      });
+    }
+
+    const idArray = Array.from(rawTutorIds);
+
+    // Retrieve TutorProfiles that match either `user` in idArray or `_id` in idArray
+    const tutorProfiles = await TutorProfile.find({
+      $or: [{ user: { $in: idArray } }, { _id: { $in: idArray } }],
+    }).populate("user", "name email profileImage avatar");
+
+    const tutorsMap = new Map();
+
+    for (const tp of tutorProfiles) {
+      const tutorUser = tp.user;
+      const uId = tutorUser ? tutorUser._id.toString() : tp._id.toString();
+
+      if (!tutorsMap.has(uId)) {
+        let subjectName =
+          tp.primarySubject ||
+          (Array.isArray(tp.subjects) && tp.subjects.length > 0 ? tp.subjects[0] : "Regular Classes Tuition");
+
+        tutorsMap.set(uId, {
+          _id: uId,
+          tutorProfileId: tp._id.toString(),
+          name: tutorUser ? tutorUser.name || "Tutor" : "Tutor",
+          email: tutorUser ? tutorUser.email || "" : "",
+          avatar: tutorUser ? tutorUser.profileImage || tutorUser.avatar || "" : "",
+          subject: subjectName,
+          statusBadge: "🟢 Regular Classes Tutor",
+          fee: tp.hourlyRate || 500,
+          rating: tp.rating || 5.0,
+        });
+      }
+    }
+
+    // Also check any User records directly if TutorProfile wasn't found
+    for (const idStr of idArray) {
+      if (!tutorsMap.has(idStr)) {
+        const u = await User.findById(idStr).select("name email role profileImage avatar");
+        if (u && u.role === "tutor") {
+          tutorsMap.set(idStr, {
+            _id: idStr,
+            tutorProfileId: idStr,
+            name: u.name || "Tutor",
+            email: u.email || "",
+            avatar: u.profileImage || u.avatar || "",
+            subject: "Regular Classes Tuition",
+            statusBadge: "🟢 Regular Classes Tutor",
+            fee: 500,
+            rating: 5.0,
+          });
+        }
+      }
+    }
+
+    const tutorsList = Array.from(tutorsMap.values());
+
+    return res.status(200).json({
+      success: true,
+      count: tutorsList.length,
+      tutors: tutorsList,
+    });
+  } catch (err) {
+    console.error("Get My Tutors Error:", err);
+    return res.status(500).json({ success: false, message: "Server error fetching regular tutors." });
+  }
+};
+
+/**
+ * GET /api/student/completed-demo-tutors
+ * Retrieve all tutor IDs for which the logged-in student has completed a demo class.
+ */
+exports.getCompletedDemoTutors = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+
+    const completedBookings = await BookingRequest.find({
+      student: studentId,
+      isTrial: true,
+      $or: [{ status: "Completed" }, { homeVisitStatus: "Completed" }],
+    }).select("tutor tutorProfile");
+
+    const completedSchedules = await ClassSchedule.find({
+      student: studentId,
+      isTrial: true,
+      status: "Completed",
+    }).select("tutor");
+
+    const demoTutorSet = new Set();
+
+    completedBookings.forEach((b) => {
+      if (b.tutor) demoTutorSet.add(b.tutor.toString());
+      if (b.tutorProfile) demoTutorSet.add(b.tutorProfile.toString());
+    });
+
+    completedSchedules.forEach((s) => {
+      if (s.tutor) demoTutorSet.add(s.tutor.toString());
+    });
+
+    return res.status(200).json({
+      success: true,
+      completedDemoTutorIds: Array.from(demoTutorSet),
+    });
+  } catch (err) {
+    console.error("Get Completed Demo Tutors Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * GET /api/student/pending-demo-tutors
+ * Retrieve all tutor IDs for which the logged-in student currently has a pending demo request.
+ */
+exports.getPendingDemoTutors = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+
+    const pendingBookings = await BookingRequest.find({
+      student: studentId,
+      isTrial: true,
+      status: { $in: ["Pending", "Pending Admin Approval", "Pending Tutor Acceptance"] },
+    }).select("tutor tutorProfile");
+
+    const pendingTutorSet = new Set();
+
+    pendingBookings.forEach((b) => {
+      if (b.tutor) pendingTutorSet.add(b.tutor.toString());
+      if (b.tutorProfile) pendingTutorSet.add(b.tutorProfile.toString());
+    });
+
+    return res.status(200).json({
+      success: true,
+      pendingDemoTutorIds: Array.from(pendingTutorSet),
+    });
+  } catch (err) {
+    console.error("Get Pending Demo Tutors Error:", err);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };

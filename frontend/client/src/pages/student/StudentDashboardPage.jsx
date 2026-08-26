@@ -4,6 +4,7 @@ import { studentApi } from '../../services/studentApi';
 import { StudentSidebar } from '../../components/student/StudentSidebar';
 import { StudentHeaderBar } from '../../components/student/StudentHeaderBar';
 import { OverviewTab } from '../../components/student/tabs/OverviewTab';
+import { MyTutorsTab } from '../../components/student/tabs/MyTutorsTab';
 import { FindTutorsTab } from '../../components/student/tabs/FindTutorsTab';
 import { ClassesTab } from '../../components/student/tabs/ClassesTab';
 import { HomeworkTab } from '../../components/student/tabs/HomeworkTab';
@@ -15,15 +16,18 @@ import { ReviewModal } from '../../components/student/modals/ReviewModal';
 import { CertificatesModal } from '../../components/student/modals/CertificatesModal';
 import { RequestTutorModal } from '../../components/student/modals/RequestTutorModal';
 import { AIRecommendationsModal } from '../../components/student/modals/AIRecommendationsModal';
+import { RegularClassPaymentModal } from '../../components/tutor/RegularClassPaymentModal';
+import { TopupWalletModal } from '../../components/student/modals/TopupWalletModal';
 
 import { NotificationsTab } from '../../components/common/NotificationsTab';
 import { useDashboardTab } from '../../hooks/useDashboardTab';
 
 const STUDENT_VALID_TABS = [
   'overview',
-  'notifications',
-  'search-tutors',
-  'schedule',
+  'find',
+  'my-tutors',
+  'requests',
+  'referral',
   'learning',
   'chat',
   'payments',
@@ -35,16 +39,26 @@ export const StudentDashboardPage = () => {
   const [studentUser, setStudentUser] = useState(null);
   const [statsData, setStatsData] = useState(null);
   const [tutors, setTutors] = useState([]);
+  const [completedDemoTutorIds, setCompletedDemoTutorIds] = useState([]);
+  const [pendingDemoTutorIds, setPendingDemoTutorIds] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Modals state
   const [bookModalOpen, setBookModalOpen] = useState(false);
   const [selectedTutorForBooking, setSelectedTutorForBooking] = useState(null);
+  const [regularPaymentModalOpen, setRegularPaymentModalOpen] = useState(false);
+  const [selectedRegularTutor, setSelectedRegularTutor] = useState(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [certificatesModalOpen, setCertificatesModalOpen] = useState(false);
   const [requestTutorModalOpen, setRequestTutorModalOpen] = useState(false);
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [topupModalOpen, setTopupModalOpen] = useState(false);
+
+  const handleOpenRegularClassModal = (tutor) => {
+    setSelectedRegularTutor(tutor);
+    setRegularPaymentModalOpen(true);
+  };
 
   // Toast feedback state
   const [toastMessage, setToastMessage] = useState('');
@@ -69,10 +83,12 @@ export const StudentDashboardPage = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [profileRes, statsRes, tutorsRes] = await Promise.all([
+      const [profileRes, statsRes, tutorsRes, demoRes, pendingRes] = await Promise.all([
         studentApi.getProfile(),
         studentApi.getDashboardStats(),
         studentApi.getTutors(),
+        studentApi.getCompletedDemoTutors(),
+        studentApi.getPendingDemoTutors(),
       ]);
 
       if (profileRes.success && profileRes.student) {
@@ -84,9 +100,15 @@ export const StudentDashboardPage = () => {
       if (tutorsRes.success && tutorsRes.tutors) {
         setTutors(tutorsRes.tutors);
       }
+      if (demoRes.success && demoRes.completedDemoTutorIds) {
+        setCompletedDemoTutorIds(demoRes.completedDemoTutorIds);
+      }
+      if (pendingRes.success && pendingRes.pendingDemoTutorIds) {
+        setPendingDemoTutorIds(pendingRes.pendingDemoTutorIds);
+      }
       fetchUnreadCount();
     } catch (err) {
-      console.error('Load Student Dashboard Error:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -94,6 +116,37 @@ export const StudentDashboardPage = () => {
 
   useEffect(() => {
     loadAllData();
+
+    const handleCustomEvent = (e) => {
+      if (e.detail && typeof e.detail.unreadCount === 'number') {
+        setUnreadNotifications(e.detail.unreadCount);
+        return;
+      }
+      fetchUnreadCount();
+    };
+
+    window.addEventListener('unreadCountUpdated', handleCustomEvent);
+    window.addEventListener('refreshNotifications', fetchUnreadCount);
+
+    if (window.socket) {
+      window.socket.on('receiveNotification', fetchUnreadCount);
+      window.socket.on('unreadCountChanged', (data) => {
+        if (data && typeof data.unreadCount === 'number') {
+          setUnreadNotifications(data.unreadCount);
+        } else {
+          fetchUnreadCount();
+        }
+      });
+    }
+
+    return () => {
+      window.removeEventListener('unreadCountUpdated', handleCustomEvent);
+      window.removeEventListener('refreshNotifications', fetchUnreadCount);
+      if (window.socket) {
+        window.socket.off('receiveNotification', fetchUnreadCount);
+        window.socket.off('unreadCountChanged');
+      }
+    };
   }, []);
 
   const handleOpenBookingModal = (tutor) => {
@@ -122,8 +175,17 @@ export const StudentDashboardPage = () => {
     showToast(msg || 'Wallet topped up successfully!');
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
     <div className="dashboard-wrapper">
+      {/* MOBILE BACKDROP OVERLAY */}
+      <div
+        className={`sidebar-overlay ${isMobileMenuOpen ? 'active' : ''}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+
       {/* SIDEBAR */}
       <StudentSidebar
         activeTab={activeTab}
@@ -131,6 +193,8 @@ export const StudentDashboardPage = () => {
         studentUser={studentUser}
         unreadCount={unreadNotifications}
         onOpenCertificates={() => setCertificatesModalOpen(true)}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* MAIN DASHBOARD CONTENT */}
@@ -138,11 +202,8 @@ export const StudentDashboardPage = () => {
         <StudentHeaderBar
           onRequestTutor={() => setRequestTutorModalOpen(true)}
           onStartVideoCall={handleStartVideoCall}
-          onTopupWallet={(amount) => {
-            studentApi.topupWallet(amount).then((res) => {
-              if (res.success) handleWalletTopupSuccess(res.walletBalance, res.message);
-            });
-          }}
+          onTopupWallet={() => setTopupModalOpen(true)}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
         {/* TOAST FEEDBACK DISPLAY */}
@@ -174,12 +235,16 @@ export const StudentDashboardPage = () => {
               />
             )}
 
+            {activeTab === 'my-tutors' && (
+              <MyTutorsTab onFindTutor={() => setActiveTab('search-tutors')} />
+            )}
+
             {activeTab === 'notifications' && (
               <NotificationsTab userRole="student" onSelectTab={setActiveTab} />
             )}
 
             {activeTab === 'search-tutors' && (
-              <FindTutorsTab onBookTutor={handleOpenBookingModal} />
+              <FindTutorsTab onBookTutor={handleOpenBookingModal} onRegularClass={handleOpenRegularClassModal} />
             )}
 
             {activeTab === 'schedule' && (
@@ -197,6 +262,7 @@ export const StudentDashboardPage = () => {
                 walletBalance={statsData && statsData.stats ? statsData.stats.walletBalance : 0}
                 transactions={statsData ? statsData.transactions : []}
                 onWalletTopupSuccess={handleWalletTopupSuccess}
+                onOpenTopup={() => setTopupModalOpen(true)}
               />
             )}
 
@@ -212,9 +278,25 @@ export const StudentDashboardPage = () => {
         isOpen={bookModalOpen}
         onClose={() => setBookModalOpen(false)}
         tutor={selectedTutorForBooking}
+        completedDemoTutorIds={completedDemoTutorIds}
+        pendingDemoTutorIds={pendingDemoTutorIds}
         onSuccess={(msg) => {
           showToast(msg);
           loadAllData();
+        }}
+        onOpenRegularPayment={handleOpenRegularClassModal}
+      />
+
+      <RegularClassPaymentModal
+        isOpen={regularPaymentModalOpen}
+        onClose={() => setRegularPaymentModalOpen(false)}
+        tutor={selectedRegularTutor}
+        walletBalance={statsData && statsData.stats ? statsData.stats.walletBalance : 0}
+        onOpenTopup={() => setTopupModalOpen(true)}
+        onSuccess={(msg) => {
+          showToast(msg);
+          loadAllData();
+          setActiveTab('my-tutors');
         }}
       />
 
@@ -243,7 +325,18 @@ export const StudentDashboardPage = () => {
         isOpen={aiModalOpen}
         onClose={() => setAiModalOpen(false)}
         tutors={tutors}
+        completedDemoTutorIds={completedDemoTutorIds}
         onBookTutor={handleOpenBookingModal}
+      />
+
+      <TopupWalletModal
+        isOpen={topupModalOpen}
+        onClose={() => setTopupModalOpen(false)}
+        walletBalance={statsData && statsData.stats ? statsData.stats.walletBalance : 0}
+        onSuccess={(newBal, msg) => {
+          handleWalletTopupSuccess(newBal, msg);
+          loadAllData();
+        }}
       />
     </div>
   );

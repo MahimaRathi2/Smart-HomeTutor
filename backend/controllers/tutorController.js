@@ -924,8 +924,18 @@ exports.getTutorDashboardStats = async (req, res) => {
     const completedClasses = await ClassSchedule.countDocuments({ tutor: tutorId, status: "Completed" });
     const presentAttendanceCount = await ClassSchedule.countDocuments({ tutor: tutorId, attendance: "Present" });
 
-    const user = await User.findById(tutorId).select("walletBalance");
+    const user = await User.findById(tutorId).select("walletBalance referralCode referralEarnings");
     const userWallet = user ? user.walletBalance || 0 : 0;
+
+    let userReferralCode = user ? user.referralCode : "";
+    if (user && !userReferralCode) {
+      userReferralCode = "REF-" + user._id.toString().slice(-6).toUpperCase();
+      user.referralCode = userReferralCode;
+      await user.save();
+    }
+    const referredCount = userReferralCode
+      ? await User.countDocuments({ referredBy: userReferralCode })
+      : 0;
 
     const completedClassesList = await ClassSchedule.find({ tutor: tutorId, status: "Completed" });
     const classEarnings = completedClassesList.length * (profile ? profile.fee || profile.hourlyRate || 500 : 500);
@@ -969,6 +979,9 @@ exports.getTutorDashboardStats = async (req, res) => {
         studyMaterialsCount,
         rating: avgRating,
         totalReviews,
+        referredCount,
+        referralCode: userReferralCode,
+        referralEarnings: user ? user.referralEarnings || 0 : 0,
       },
       todaysClasses,
       acceptedStudents: acceptedRequests.map((b) => b.student),
@@ -977,6 +990,9 @@ exports.getTutorDashboardStats = async (req, res) => {
       verificationStatus: profile ? profile.verificationStatus : "Pending",
       payoutHistory,
       pendingPayoutRequest,
+      referralCode: userReferralCode,
+      referralEarnings: user ? user.referralEarnings || 0 : 0,
+      referredCount,
     });
   } catch (err) {
     console.error("Get Tutor Dashboard Stats Error:", err);

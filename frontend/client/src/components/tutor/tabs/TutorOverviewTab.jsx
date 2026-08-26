@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnnouncementsList } from '../../common/AnnouncementsList';
+import { ReferralSection } from '../../common/ReferralSection';
 
 export const TutorOverviewTab = ({
   stats,
@@ -7,6 +8,10 @@ export const TutorOverviewTab = ({
   pendingRequests = [],
   payoutHistory = [],
   reviews = [],
+  referralCode = '',
+  referralEarnings = 0,
+  referredCount = 0,
+  referredUsers = [],
   onAcceptRequest,
   onRejectRequest,
   onRequestPayout
@@ -188,6 +193,17 @@ export const TutorOverviewTab = ({
             <button className="dash-btn dash-btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={onRequestPayout}>
               <i className="fa-solid fa-building-columns"></i> Transfer to Bank Account
             </button>
+          </div>
+
+          {/* REFERRAL PROGRAM & REWARDS */}
+          <div style={{ marginTop: '20px' }}>
+            <ReferralSection
+              referralCode={referralCode || stats?.referralCode}
+              referralEarnings={referralEarnings || stats?.referralEarnings || 0}
+              referredCount={referredCount || stats?.referredCount || 0}
+              referredUsers={referredUsers}
+              userRole="tutor"
+            />
           </div>
 
           {/* PAYOUT REQUEST HISTORY & STATUS */}

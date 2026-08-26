@@ -77,21 +77,19 @@ export const App = () => {
           let target = e.target;
           let isInternalScroll = false;
 
+          // Check if touch gesture is inside a mobile scroll container or table
           while (target && target !== document.body && target !== document.documentElement) {
             const style = window.getComputedStyle(target);
             const overflowX = style.getPropertyValue('overflow-x');
-            if ((overflowX === 'auto' || overflowX === 'scroll') && target.scrollWidth > target.clientWidth) {
-              const canScrollLeft = diffX > 0 && target.scrollLeft > 0;
-              const canScrollRight = diffX < 0 && target.scrollLeft + target.clientWidth < target.scrollWidth;
-              if (canScrollLeft || canScrollRight) {
-                isInternalScroll = true;
-                break;
-              }
+            const hasMobileClass = target.classList.contains('mobile-scroll-container') || target.classList.contains('dash-table-wrapper');
+            if (hasMobileClass || ((overflowX === 'auto' || overflowX === 'scroll') && target.scrollWidth > target.clientWidth)) {
+              isInternalScroll = true;
+              break;
             }
             target = target.parentElement;
           }
 
-          if (!isInternalScroll) {
+          if (!isInternalScroll && !('ontouchstart' in window)) {
             e.preventDefault();
           }
         }

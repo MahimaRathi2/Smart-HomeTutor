@@ -21,8 +21,10 @@ router.put("/booking-request/:id/reject", requireAuth, authorizeRole("tutor"), r
 router.post("/booking-requests/:id/respond", requireAuth, authorizeRole("tutor"), requireApprovedTutor, tutorController.respondBookingRequest);
 router.put("/home-visit/:bookingId/status", requireAuth, authorizeRole("tutor"), requireApprovedTutor, tutorController.updateHomeVisitStatus);
 
-// Tutor Dashboard Aggregates & Payout (Requires Admin Approval)
+// Tutor Dashboard Aggregates, Referrals & Payout
+const referralController = require("../controllers/referralController");
 router.get("/dashboard-stats", requireAuth, authorizeRole("tutor"), tutorController.getTutorDashboardStats);
+router.get("/referrals", requireAuth, authorizeRole("tutor"), referralController.getReferrals);
 router.post("/payout", requireAuth, authorizeRole("tutor"), requireApprovedTutor, tutorController.requestPayout);
 
 // Homework & Study Material Upload Endpoints (Requires Admin Approval)

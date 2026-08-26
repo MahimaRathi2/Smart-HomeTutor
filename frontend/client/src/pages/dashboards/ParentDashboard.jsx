@@ -50,8 +50,52 @@ export const ParentDashboard = () => {
     window.scrollTo(0, 0);
   }, []);
 
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await fetch('/api/notifications/unread-count');
+      const data = await res.json();
+      if (data.success) {
+        setUnreadNotificationsCount(data.count || 0);
+      }
+    } catch (err) {
+      console.error('Fetch parent unread count error:', err);
+    }
+  };
+
   useEffect(() => {
     fetchDashboardStats();
+    fetchUnreadCount();
+
+    const handleCustomEvent = (e) => {
+      if (e.detail && typeof e.detail.unreadCount === 'number') {
+        setUnreadNotificationsCount(e.detail.unreadCount);
+        return;
+      }
+      fetchUnreadCount();
+    };
+
+    window.addEventListener('unreadCountUpdated', handleCustomEvent);
+    window.addEventListener('refreshNotifications', fetchUnreadCount);
+
+    if (window.socket) {
+      window.socket.on('receiveNotification', fetchUnreadCount);
+      window.socket.on('unreadCountChanged', (data) => {
+        if (data && typeof data.unreadCount === 'number') {
+          setUnreadNotificationsCount(data.unreadCount);
+        } else {
+          fetchUnreadCount();
+        }
+      });
+    }
+
+    return () => {
+      window.removeEventListener('unreadCountUpdated', handleCustomEvent);
+      window.removeEventListener('refreshNotifications', fetchUnreadCount);
+      if (window.socket) {
+        window.socket.off('receiveNotification', fetchUnreadCount);
+        window.socket.off('unreadCountChanged');
+      }
+    };
   }, []);
 
   const fetchDashboardStats = async () => {
@@ -86,11 +130,20 @@ export const ParentDashboard = () => {
     ? (children[0].name || (children[0].student ? children[0].student.name : 'Child Profile'))
     : 'No Linked Children';
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
     <div className="parent-dashboard-page">
       <Header activePage="dashboard" />
 
       <div className="dashboard-wrapper">
+        {/* MOBILE BACKDROP OVERLAY */}
+        <div
+          className={`sidebar-overlay ${isMobileMenuOpen ? 'active' : ''}`}
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+
         {/* SIDEBAR */}
         <ParentSidebar
           userName={userName || 'Rajesh Sharma'}
@@ -100,19 +153,32 @@ export const ParentDashboard = () => {
           unreadNotificationsCount={unreadNotificationsCount}
           onOpenAddChildModal={() => setIsAddChildOpen(true)}
           onOpenCertificatesModal={() => setIsCertificatesOpen(true)}
+          isOpenMobile={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
 
         {/* MAIN DASHBOARD CONTENT */}
-        <main className="dashboard-main" style={{ marginLeft: '270px', padding: '24px', flex: 1, minHeight: '100vh', boxSizing: 'border-box' }}>
+        <main className="dashboard-main">
           {/* HEADER BAR */}
           <div className="dashboard-header-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-            <div className="dashboard-title">
-              <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f2a4a', margin: '0 0 4px 0' }}>
-                Parent Supervision & Guardian Portal
-              </h1>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>
-                Track your children's academic performance, class attendance, tutor reports, and pay tuition fees.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                className="mobile-hamburger-btn"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                aria-label="Open Parent Portal Menu"
+                title="Open Menu"
+              >
+                <i className="fa-solid fa-bars"></i>
+              </button>
+              <div className="dashboard-title">
+                <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f2a4a', margin: '0 0 4px 0' }}>
+                  Parent Supervision & Guardian Portal
+                </h1>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>
+                  Track your children's academic performance, class attendance, tutor reports, and pay tuition fees.
+                </p>
+              </div>
             </div>
             <div className="dashboard-actions">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f3e8ff', padding: '6px 14px', borderRadius: '20px', border: '1px solid #d8b4fe' }}>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AnnouncementsList } from '../../common/AnnouncementsList';
+import { ReferralSection } from '../../common/ReferralSection';
 
 export const OverviewTab = ({
   stats,
@@ -271,87 +272,12 @@ export const OverviewTab = ({
           </div>
 
           {/* 5. PAYMENT-BASED REFERRAL REWARDS */}
-          <div className="dash-card" style={{ padding: '18px 20px' }}>
-            <div className="dash-card-header" style={{ marginBottom: '12px', paddingBottom: '10px' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', color: '#0f2a4a', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <i className="fa-solid fa-gift" style={{ color: '#10b981' }}></i> Payment-Based Referral Rewards
-              </h3>
-            </div>
-
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px 0', lineHeight: '1.45' }}>
-              Share your referral link and earn <strong>₹100</strong> when your referred friend completes their first successful tuition payment. They receive <strong>₹50</strong>.
-            </p>
-
-            {/* REFERRAL CODE BOX */}
-            <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '10px' }}>
-              <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
-                Referral Code
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                <strong style={{ fontSize: '15px', color: '#0f2a4a', letterSpacing: '0.5px', fontFamily: 'monospace' }}>
-                  {codeValue}
-                </strong>
-                <button
-                  type="button"
-                  className="dash-btn dash-btn-outline"
-                  style={{ fontSize: '11px', padding: '4px 10px', height: '28px' }}
-                  onClick={copyReferralCode}
-                >
-                  <i className="fa-solid fa-copy" style={{ marginRight: '4px' }}></i> {copiedCode ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-            </div>
-
-            {/* REFERRAL LINK BOX */}
-            <div style={{ background: '#f1f5f9', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
-              <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
-                Referral Link
-              </span>
-              <div style={{ fontSize: '11.5px', color: '#0284c7', fontWeight: '600', wordBreak: 'break-all', lineHeight: '1.3' }}>
-                {referralLinkUrl}
-              </div>
-            </div>
-
-            {/* LINK ACTION BUTTONS */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
-              <button
-                type="button"
-                className="dash-btn dash-btn-outline"
-                style={{ fontSize: '11px', padding: '6px 10px', flex: 1, justifyContent: 'center' }}
-                onClick={copyReferralLink}
-              >
-                <i className="fa-solid fa-link" style={{ marginRight: '4px' }}></i> {copiedLink ? 'Copied!' : 'Copy Link'}
-              </button>
-              <button
-                type="button"
-                className="dash-btn dash-btn-primary"
-                style={{ fontSize: '11px', padding: '6px 10px', flex: 1, justifyContent: 'center' }}
-                onClick={shareReferralLink}
-              >
-                <i className="fa-solid fa-share-nodes" style={{ marginRight: '4px' }}></i> Share Link
-              </button>
-            </div>
-
-            {/* STATS BOXES */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div style={{ background: '#e0f2fe', padding: '10px 12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #bae6fd' }}>
-                <span style={{ fontSize: '10.5px', color: '#0369a1', fontWeight: '700', display: 'block' }}>
-                  <i className="fa-solid fa-wallet" style={{ marginRight: '4px' }}></i> Credited
-                </span>
-                <strong style={{ fontSize: '15px', color: '#0284c7' }}>
-                  ₹{(referralEarnings || 0).toLocaleString('en-IN')}
-                </strong>
-              </div>
-              <div style={{ background: '#dcfce7', padding: '10px 12px', borderRadius: '8px', textAlign: 'center', border: '1px solid #bbf7d0' }}>
-                <span style={{ fontSize: '10.5px', color: '#15803d', fontWeight: '700', display: 'block' }}>
-                  <i className="fa-solid fa-users" style={{ marginRight: '4px' }}></i> Friends
-                </span>
-                <strong style={{ fontSize: '15px', color: '#16a34a' }}>
-                  {referredCount} Referred
-                </strong>
-              </div>
-            </div>
-          </div>
+          <ReferralSection
+            referralCode={referralCode}
+            referralEarnings={referralEarnings}
+            referredCount={referredCount}
+            userRole="student"
+          />
         </div>
       </div>
     </div>

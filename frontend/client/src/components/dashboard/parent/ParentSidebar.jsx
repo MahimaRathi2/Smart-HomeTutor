@@ -8,8 +8,15 @@ export const ParentSidebar = ({
   unreadNotificationsCount = 0,
   onOpenAddChildModal,
   onOpenCertificatesModal,
+  isOpenMobile,
+  onCloseMobile,
 }) => {
   const avatarInitials = (userName || 'Parent').substring(0, 2).toUpperCase();
+
+  const handleSelectTab = (id) => {
+    onSelectTab(id);
+    if (onCloseMobile) onCloseMobile();
+  };
 
   const menuItems = [
     { id: 'overview', label: 'Overview & Attendance', icon: 'fa-house' },
@@ -21,7 +28,18 @@ export const ParentSidebar = ({
   ];
 
   return (
-    <aside className="dashboard-sidebar">
+    <aside className={`dashboard-sidebar ${isOpenMobile ? 'mobile-open' : ''}`}>
+      {onCloseMobile && (
+        <button
+          type="button"
+          className="mobile-sidebar-close-btn"
+          onClick={onCloseMobile}
+          aria-label="Close Parent Portal Menu"
+          title="Close Menu"
+        >
+          <i className="fa-solid fa-xmark"></i>
+        </button>
+      )}
       <div>
         <div className="sidebar-user">
           <div className="user-avatar" style={{ background: '#7e22ce' }}>{avatarInitials}</div>
@@ -40,7 +58,7 @@ export const ParentSidebar = ({
               className={`dash-tab-btn ${activeTab === item.id ? 'active' : ''}`}
               onClick={(e) => {
                 e.preventDefault();
-                onSelectTab(item.id);
+                handleSelectTab(item.id);
               }}
             >
               <a href="#" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
@@ -65,6 +83,7 @@ export const ParentSidebar = ({
               onClick={(e) => {
                 e.preventDefault();
                 onOpenAddChildModal();
+                if (onCloseMobile) onCloseMobile();
               }}
             >
               <i className="fa-solid fa-user-plus"></i> Add Child Profile
@@ -76,6 +95,7 @@ export const ParentSidebar = ({
               onClick={(e) => {
                 e.preventDefault();
                 onOpenCertificatesModal();
+                if (onCloseMobile) onCloseMobile();
               }}
             >
               <i className="fa-solid fa-award"></i> View Child Certificates

@@ -13,6 +13,7 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [isChatLocked, setIsChatLocked] = useState(false);
   const [chatLockMessage, setChatLockMessage] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
@@ -268,9 +269,28 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
   };
 
   return (
-    <div className="dash-tab-content" style={{ display: 'block' }}>
-      <div className="dash-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="chat-layout">
+    <div className={`dash-tab-content ${isFullScreen ? 'chat-fullscreen-wrapper' : ''}`} style={{ display: 'block' }}>
+      <div
+        className={`dash-card ${isFullScreen ? 'chat-card-fullscreen' : ''}`}
+        style={
+          isFullScreen
+            ? {
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                zIndex: 99999,
+                borderRadius: 0,
+                margin: 0,
+                padding: 0,
+                boxShadow: 'none',
+                background: '#ffffff',
+              }
+            : { padding: 0, overflow: 'hidden' }
+        }
+      >
+        <div className={`chat-layout ${isFullScreen ? 'fullscreen' : ''}`} style={isFullScreen ? { height: '100vh' } : {}}>
           {/* CONVERSATIONS SIDEBAR */}
           <div className="chat-sidebar">
             <div className="chat-sidebar-header">
@@ -343,22 +363,48 @@ export const TutorChatTab = ({ currentUserId, currentUserName }) => {
                   </small>
                 )}
               </div>
-              {activeStudentId && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {isChatLocked ? (
-                    <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                      <i className="fa-solid fa-lock"></i>  Chat Locked
-                    </span>
-                  ) : (
-                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                      <i className="fa-solid fa-comments"></i> 💬 Chat Unlocked
-                    </span>
-                  )}
-                  <button className="dash-btn dash-btn-primary" onClick={triggerVideoCall}>
-                    <i className="fa-solid fa-video"></i> Video Call
-                  </button>
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {activeStudentId && (
+                  <>
+                    {isChatLocked ? (
+                      <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <i className="fa-solid fa-lock"></i>  Chat Locked
+                      </span>
+                    ) : (
+                      <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <i className="fa-solid fa-comments"></i> 💬 Chat Unlocked
+                      </span>
+                    )}
+                    <button className="dash-btn dash-btn-primary" onClick={triggerVideoCall}>
+                      <i className="fa-solid fa-video"></i> Video Call
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-outline"
+                  onClick={() => setIsFullScreen(!isFullScreen)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: isFullScreen ? '#0f2a4a' : '#ffffff',
+                    color: isFullScreen ? '#ffffff' : '#0f2a4a',
+                    borderColor: '#0f2a4a',
+                    cursor: 'pointer',
+                    borderRadius: '8px',
+                    transition: 'all 0.2s ease',
+                  }}
+                  title={isFullScreen ? 'Exit Full Screen' : 'Expand to Full Screen'}
+                >
+                  <i className={`fa-solid ${isFullScreen ? 'fa-compress' : 'fa-expand'}`}></i>
+                  <span>{isFullScreen ? 'Exit Full Screen' : 'Full Screen'}</span>
+                </button>
+              </div>
             </div>
 
             <div className="chat-messages">

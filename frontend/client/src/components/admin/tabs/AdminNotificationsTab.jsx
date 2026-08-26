@@ -50,6 +50,14 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
     return () => clearInterval(interval);
   }, []);
 
+  const dispatchAdminUnreadCountUpdate = (count) => {
+    window.dispatchEvent(
+      new CustomEvent('unreadCountUpdated', {
+        detail: { unreadCount: count, role: 'admin' },
+      })
+    );
+  };
+
   const handleMarkAsRead = async (id) => {
     try {
       const res = await fetch(`/api/admin/notifications/${id}/read`, {
@@ -60,6 +68,9 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
         setNotifications((prev) =>
           prev.map((n) => (n._id === id ? { ...n, isRead: true, read: true } : n))
         );
+        if (typeof data.unreadCount === 'number') {
+          dispatchAdminUnreadCountUpdate(data.unreadCount);
+        }
       }
     } catch (err) {
       console.error('Error marking notification as read:', err);
@@ -74,6 +85,9 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
       const data = await res.json();
       if (data.success) {
         setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
+        if (typeof data.unreadCount === 'number') {
+          dispatchAdminUnreadCountUpdate(data.unreadCount);
+        }
         setActionSuccessMsg('All notifications marked as read');
         setTimeout(() => setActionSuccessMsg(''), 3000);
       }
@@ -94,6 +108,9 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
       const data = await res.json();
       if (data.success) {
         setNotifications((prev) => prev.filter((n) => n._id !== id));
+        if (typeof data.unreadCount === 'number') {
+          dispatchAdminUnreadCountUpdate(data.unreadCount);
+        }
       }
     } catch (err) {
       console.error('Error deleting notification:', err);
@@ -121,6 +138,33 @@ export const AdminNotificationsTab = ({ onSelectTab }) => {
     if (!item.isRead && !item.read) {
       handleMarkAsRead(item._id);
     }
+
+    const typeLower = (item.type || '').toLowerCase();
+    const titleLower = (item.title || '').toLowerCase();
+    const msgLower = (item.message || '').toLowerCase();
+    const urlLower = (item.actionUrl || '').toLowerCase();
+
+    const isHelpDeskNotif =
+      typeLower === 'dispute' ||
+      typeLower === 'complaint' ||
+      urlLower.includes('tab=disputes') ||
+      urlLower.includes('tab=complaints') ||
+      titleLower.includes('help desk') ||
+      titleLower.includes('complaint') ||
+      titleLower.includes('ticket') ||
+      titleLower.includes('dispute') ||
+      titleLower.includes('support') ||
+      msgLower.includes('help desk') ||
+      msgLower.includes('complaint ticket') ||
+      msgLower.includes('ticket #');
+
+    if (isHelpDeskNotif) {
+      if (typeof onSelectTab === 'function') {
+        onSelectTab('disputes');
+        return;
+      }
+    }
+
     if (item.type === 'payment' || (item.title && item.title.includes('Tuition Fee Payment'))) {
       if (onSelectTab) {
         onSelectTab('payment-history');

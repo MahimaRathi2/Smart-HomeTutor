@@ -286,5 +286,21 @@ export const adminApi = {
       headers: { Accept: 'application/json' }
     });
     return res.json();
+  },
+
+  // Newsletter Subscriber Management
+  async getNewsletterSubscribers(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const url = `/api/admin/newsletter/subscribers${query ? `?${query}` : ''}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    return res.json();
+  },
+
+  async unsubscribeNewsletterSubscriber(id) {
+    const res = await fetch(`/api/admin/newsletter/subscribers/${id}/unsubscribe`, {
+      method: 'PATCH',
+      headers: { Accept: 'application/json' }
+    });
+    return res.json();
   }
 };

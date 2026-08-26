@@ -4,6 +4,7 @@ import { studentApi } from '../../../services/studentApi';
 export const ClassesTab = ({ onStartVideoCall }) => {
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'online' | 'offline'
 
   useEffect(() => {
     studentApi.getClassSchedule().then((res) => {
@@ -16,16 +17,45 @@ export const ClassesTab = ({ onStartVideoCall }) => {
     }).catch(() => setLoading(false));
   }, []);
 
+  const filteredSchedule = schedule.filter((item) => {
+    if (filterMode === 'online') return !item.mode || item.mode.toLowerCase() === 'online';
+    if (filterMode === 'offline') return item.mode && item.mode.toLowerCase() === 'offline';
+    return true;
+  });
+
   return (
     <div className="dash-tab-content" style={{ display: 'block' }}>
       <div className="dash-card">
-        <div className="dash-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-             Regular Class Schedule
+        <div className="dash-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#0f2a4a', fontWeight: 800 }}>
+            <i className="fa-solid fa-calendar-days" style={{ color: '#0284c7' }}></i> Scheduled Classes & Sessions
           </h3>
-          <span style={{ fontSize: '12px', background: '#e0f2fe', color: '#0284c7', fontWeight: '700', padding: '3px 10px', borderRadius: '12px' }}>
-            {schedule.length} Enrolled Classes
-          </span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className={`dash-btn ${filterMode === 'all' ? 'dash-btn-primary' : 'dash-btn-outline'}`}
+              style={{ fontSize: '11.5px', padding: '4px 10px', height: '30px' }}
+              onClick={() => setFilterMode('all')}
+            >
+              All ({schedule.length})
+            </button>
+            <button
+              type="button"
+              className={`dash-btn ${filterMode === 'online' ? 'dash-btn-primary' : 'dash-btn-outline'}`}
+              style={{ fontSize: '11.5px', padding: '4px 10px', height: '30px' }}
+              onClick={() => setFilterMode('online')}
+            >
+              Online ({schedule.filter((s) => !s.mode || s.mode.toLowerCase() === 'online').length})
+            </button>
+            <button
+              type="button"
+              className={`dash-btn ${filterMode === 'offline' ? 'dash-btn-primary' : 'dash-btn-outline'}`}
+              style={{ fontSize: '11.5px', padding: '4px 10px', height: '30px' }}
+              onClick={() => setFilterMode('offline')}
+            >
+              Offline ({schedule.filter((s) => s.mode && s.mode.toLowerCase() === 'offline').length})
+            </button>
+          </div>
         </div>
 
         <div className="dash-table-wrapper">
@@ -45,15 +75,15 @@ export const ClassesTab = ({ onStartVideoCall }) => {
                     <i className="fa-solid fa-spinner fa-spin" style={{ color: '#0284c7', marginRight: '8px' }}></i> Loading class schedule...
                   </td>
                 </tr>
-              ) : schedule.length === 0 ? (
+              ) : filteredSchedule.length === 0 ? (
                 <tr>
                   <td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '30px' }}>
                     <i className="fa-regular fa-calendar-xmark" style={{ fontSize: '28px', color: '#cbd5e1', marginBottom: '8px', display: 'block' }}></i>
-                    No scheduled regular classes found. Book a tutor or contact your instructor to add class sessions.
+                    No classes found for the selected filter.
                   </td>
                 </tr>
               ) : (
-                schedule.map((item) => {
+                filteredSchedule.map((item) => {
                   const isOnline = !item.mode || item.mode.toLowerCase() === 'online';
                   const isCompleted = item.status === 'Completed' || item.status === 'Cancelled';
                   const formattedDate = new Date(item.date || Date.now()).toLocaleDateString('en-IN', {

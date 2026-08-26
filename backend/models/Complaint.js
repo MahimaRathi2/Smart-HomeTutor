@@ -41,8 +41,29 @@ const complaintSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Pending", "Under Review", "In Progress", "Resolved", "Rejected"],
+      enum: ["Open", "Pending", "Under Review", "In Progress", "Resolved", "Closed", "Rejected"],
       default: "Pending",
+    },
+    resolvedAt: {
+      type: Date,
+      default: null,
+    },
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    unreadCountUser: {
+      type: Number,
+      default: 0,
+    },
+    unreadCountAdmin: {
+      type: Number,
+      default: 0,
+    },
+    lastMessageAt: {
+      type: Date,
+      default: null,
     },
   },
   {

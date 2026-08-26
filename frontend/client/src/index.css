@@ -45,12 +45,49 @@ body {
   max-width: 100%;
   overflow-x: hidden;
   overscroll-behavior-x: none;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
+/* GLOBAL TEXT WRAPPING & OVERFLOW PROTECTION */
+p,
+span,
+div,
+label,
+li,
+td,
+th,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+a,
+button,
+input,
+textarea,
+select {
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+code,
+pre,
+.user-email,
+.break-all {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Flex & Grid Item Min-Width Fix for Content Containment */
 #root, .app-container {
   max-width: 100%;
   overflow-x: hidden;
   overscroll-behavior-x: none;
+  min-width: 0;
 }
 
 .container {
@@ -5785,4 +5822,145 @@ body {
   margin: 6px 0;
   font-size: 13.5px;
   color: #334155;
+}
+
+/* ==========================================
+ * MOBILE-ONLY HORIZONTAL SCROLL & SWIPE RULES
+ * ========================================== */
+.mobile-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+
+/* ==========================================================================
+ * GLOBAL TEXT WRAPPING & OVERFLOW PROTECTION SYSTEM
+ * Ensures all text wraps naturally and prevents layout overflow across the site.
+ * ========================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 1. Universal Text Element Wrapping */
+p,
+span,
+div,
+label,
+li,
+td,
+th,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+a,
+button,
+input,
+textarea,
+select {
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+/* 2. Long Continuous Text & URLs */
+code,
+pre,
+.user-email,
+.break-all,
+.truncate-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 3. Cards, Containers, Tables, & Modals Containment */
+.card,
+.dash-card,
+.ft-tutor-card,
+.tutor-about-card,
+.tutor-main-card,
+.announcement-item-card,
+.dashboard-card,
+.modal-content,
+.dashboard-main,
+.dashboard-sidebar,
+.filter-panel,
+.mobile-scroll-container,
+.sidebar-user,
+.user-info {
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 4. Flexbox & Grid Content Containment Fix */
+.flex-item,
+.grid-item,
+.dashboard-wrapper,
+.dashboard-main,
+.ft-tutor-meta-bar,
+.ft-tutor-actions-row,
+.sidebar-user,
+.sidebar-menu li a,
+div[style*="display: flex"],
+div[style*="display:grid"] {
+  min-width: 0;
+}
+
+/* 5. Button Text Wrapping & Icon Protection */
+.dash-btn,
+.ft-btn,
+.tutor-book-btn,
+button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* 6. Form Inputs & Textarea Overflow Containment */
+input,
+textarea,
+select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 7. Table Text Wrapping & Cell Protection */
+table,
+thead,
+tbody,
+tr,
+th,
+td {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+td,
+th {
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
 }

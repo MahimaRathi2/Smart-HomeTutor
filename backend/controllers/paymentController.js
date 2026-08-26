@@ -1,9 +1,11 @@
+const mongoose = require("mongoose");
 const crypto = require("crypto");
 const { razorpayInstance, key_id, key_secret } = require("../config/razorpay");
 const Payment = require("../models/Payment");
 const Transaction = require("../models/Transaction");
 const User = require("../models/User");
 const BookingRequest = require("../models/BookingRequest");
+const TutorProfile = require("../models/TutorProfile");
 const { createNotification, createAdminNotification } = require("../utils/notificationHelper");
 
 const { calculateTutorFeeSummary } = require("./studentController");
@@ -149,6 +151,23 @@ exports.verifyPayment = async (req, res) => {
     const targetBookingId = bookingId || (payment ? payment.booking : null);
     const targetTutorId = tutorId || (payment ? payment.tutor : null);
 
+    // IDEMPOTENCY CHECK: Prevent duplicate wallet credits & duplicate transaction ledger entries
+    const existingTx = await Transaction.findOne({
+      $or: [
+        { description: { $regex: razorpay_payment_id } },
+      ],
+    });
+
+    if ((payment && (payment.paymentStatus === "Success" || payment.paymentStatus === "Paid")) || existingTx) {
+      const currentUser = await User.findById(userId);
+      return res.status(200).json({
+        success: true,
+        message: "Payment verified successfully!",
+        walletBalance: currentUser ? currentUser.walletBalance || 0 : 0,
+        payment: payment || {},
+      });
+    }
+
     if (payment) {
       payment.paymentStatus = "Success";
       payment.paymentId = razorpay_payment_id;
@@ -192,7 +211,7 @@ exports.verifyPayment = async (req, res) => {
 
       await Transaction.create({
         user: userId,
-        type: "Wallet Topup",
+        type: "Credit",
         amount: paidAmount,
         description: `Razorpay Wallet Topup (ID: ${razorpay_payment_id})`,
         status: "Completed",
@@ -493,3 +512,144 @@ const processReferralRewardOnPayment = async (studentId, app) => {
 };
 
 exports.processReferralRewardOnPayment = processReferralRewardOnPayment;
+
+/**
+ * POST /api/payment/pay-with-wallet
+ * Process Regular Class / Tuition Payment directly using Student Smart Wallet Balance
+ */
+exports.payWithWallet = async (req, res) => {
+  try {
+    const { amount, tutorId, bookingId, message } = req.body;
+    const userId = req.user.id;
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ success: false, message: "Valid payment amount is required." });
+    }
+
+    const payAmount = Number(amount);
+
+    // Fee Limit Validation: Prevent overpaying remaining tuition balance
+    if (tutorId && mongoose.Types.ObjectId.isValid(tutorId)) {
+      const feeSummary = await calculateTutorFeeSummary(userId, tutorId);
+      if (feeSummary && feeSummary.totalTuitionFee > 0) {
+        if (feeSummary.paymentLeft === 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Tuition fee for this tutor has already been fully paid.",
+          });
+        }
+        if (payAmount > feeSummary.paymentLeft) {
+          return res.status(400).json({
+            success: false,
+            message: `Payment amount (₹${payAmount}) exceeds the remaining payable tuition fee balance of ₹${feeSummary.paymentLeft}.`,
+          });
+        }
+      }
+    }
+
+    // Atomic Balance Check & Debit
+    const user = await User.findOneAndUpdate(
+      { _id: userId, walletBalance: { $gte: payAmount } },
+      { $inc: { walletBalance: -payAmount } },
+      { returnDocument: "after" }
+    );
+
+    if (!user) {
+      const currentUser = await User.findById(userId).select("walletBalance");
+      const currentBal = currentUser ? currentUser.walletBalance || 0 : 0;
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient Smart Wallet balance (₹${currentBal.toLocaleString("en-IN")}). Required: ₹${payAmount.toLocaleString("en-IN")}. Please top up your wallet or pay via Razorpay.`,
+        walletBalance: currentBal,
+      });
+    }
+
+    const orderRef = `wallet_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const payRef = `pay_wallet_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+    let targetTutor = null;
+    if (tutorId && mongoose.Types.ObjectId.isValid(tutorId)) {
+      targetTutor = await User.findById(tutorId).select("name email");
+      if (!targetTutor) {
+        const tp = await TutorProfile.findById(tutorId).populate("user");
+        if (tp && tp.user) targetTutor = tp.user;
+      }
+    }
+
+    const validTutorObjId = targetTutor ? targetTutor._id : (tutorId && mongoose.Types.ObjectId.isValid(tutorId) ? tutorId : null);
+    const validBookingObjId = (bookingId && mongoose.Types.ObjectId.isValid(bookingId)) ? bookingId : null;
+
+    const payment = await Payment.create({
+      user: userId,
+      tutor: validTutorObjId,
+      booking: validBookingObjId,
+      role: req.user.role,
+      amount: payAmount,
+      orderId: orderRef,
+      paymentId: payRef,
+      signature: "wallet_signature",
+      paymentType: "Tuition Fee Payment",
+      paymentStatus: "Success",
+      isTestMode: false,
+    });
+
+    const tutorNameStr = targetTutor ? targetTutor.name || "Tutor" : "Tutor";
+
+    const transaction = await Transaction.create({
+      user: userId,
+      type: "Tuition Fee Payment",
+      amount: payAmount,
+      description: `Regular Class Payment for ${tutorNameStr} (Smart Wallet)`,
+      status: "Completed",
+      isTestMode: false,
+    });
+
+    if (validBookingObjId) {
+      await BookingRequest.findByIdAndUpdate(validBookingObjId, { isChatUnlocked: true });
+    }
+
+    // Notifications
+    const studentName = user.name || "Student";
+
+    await createNotification({
+      userId: userId,
+      title: "Smart Wallet Class Payment Successful",
+      message: `₹${payAmount.toLocaleString("en-IN")} debited from your Smart Wallet for regular class tuition. New Balance: ₹${user.walletBalance.toLocaleString("en-IN")}.`,
+      type: "payment",
+      actionUrl: "/dashboard/student?tab=payments",
+      app: req.app,
+    });
+
+    if (targetTutor) {
+      await createNotification({
+        userId: targetTutor._id,
+        title: "Tuition Fee Received (Wallet)",
+        message: `Student ${studentName} paid ₹${payAmount.toLocaleString("en-IN")} tuition fee via Smart Wallet.`,
+        type: "payment",
+        actionUrl: "/dashboard/tutor?tab=overview",
+        app: req.app,
+      });
+    }
+
+    await createAdminNotification({
+      title: "New Tuition Fee Payment (Smart Wallet)",
+      message: `Student ${studentName} paid ₹${payAmount.toLocaleString("en-IN")} via Smart Wallet.`,
+      type: "payment",
+      actionUrl: "/dashboard/admin?tab=payment-history",
+      app: req.app,
+    });
+
+    await processReferralRewardOnPayment(userId, req.app);
+
+    return res.status(200).json({
+      success: true,
+      message: `₹${payAmount.toLocaleString("en-IN")} successfully debited from Smart Wallet! Tuition fee paid.`,
+      walletBalance: user.walletBalance,
+      payment,
+      transaction,
+    });
+  } catch (err) {
+    console.error("Pay With Wallet Error:", err);
+    return res.status(500).json({ success: false, message: err.message || "Error processing wallet payment." });
+  }
+};

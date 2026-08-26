@@ -30,16 +30,26 @@ export const ParentNotificationsTab = ({ onUnreadChange, onSelectTab }) => {
     }
   };
 
+  const dispatchUnreadCountUpdate = (count) => {
+    if (typeof onUnreadChange === 'function') onUnreadChange(count);
+    window.dispatchEvent(
+      new CustomEvent('unreadCountUpdated', {
+        detail: { unreadCount: count, role: 'parent' },
+      })
+    );
+  };
+
   const markRead = async (id, e) => {
     if (e) e.stopPropagation();
     try {
-      setNotifications((prev) => {
-        const updated = prev.map((n) => (n._id === id ? { ...n, isRead: true, read: true } : n));
-        const unreadCount = updated.filter((n) => !n.isRead && !n.read).length;
-        if (onUnreadChange) onUnreadChange(unreadCount);
-        return updated;
-      });
-      await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
+      setNotifications((prev) =>
+        prev.map((n) => (n._id === id ? { ...n, isRead: true, read: true } : n))
+      );
+      const res = await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
+      const data = await res.json();
+      if (data.success && typeof data.unreadCount === 'number') {
+        dispatchUnreadCountUpdate(data.unreadCount);
+      }
     } catch (err) {
       console.error('Mark notification read error:', err);
     }
@@ -47,12 +57,14 @@ export const ParentNotificationsTab = ({ onUnreadChange, onSelectTab }) => {
 
   const markAllRead = async () => {
     try {
-      setNotifications((prev) => {
-        const updated = prev.map((n) => ({ ...n, isRead: true, read: true }));
-        if (onUnreadChange) onUnreadChange(0);
-        return updated;
-      });
-      await fetch('/api/notifications/read-all', { method: 'PATCH' });
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, isRead: true, read: true }))
+      );
+      const res = await fetch('/api/notifications/read-all', { method: 'PATCH' });
+      const data = await res.json();
+      if (data.success && typeof data.unreadCount === 'number') {
+        dispatchUnreadCountUpdate(data.unreadCount);
+      }
     } catch (err) {
       console.error('Mark all notifications read error:', err);
     }
@@ -61,21 +73,57 @@ export const ParentNotificationsTab = ({ onUnreadChange, onSelectTab }) => {
   const deleteNotification = async (id, e) => {
     if (e) e.stopPropagation();
     try {
-      setNotifications((prev) => {
-        const updated = prev.filter((n) => n._id !== id);
-        const unreadCount = updated.filter((n) => !n.isRead && !n.read).length;
-        if (onUnreadChange) onUnreadChange(unreadCount);
-        return updated;
-      });
-      await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+      const res = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success && typeof data.unreadCount === 'number') {
+        dispatchUnreadCountUpdate(data.unreadCount);
+      }
     } catch (err) {
       console.error('Delete notification error:', err);
     }
   };
 
+  const isHelpDeskNotification = (n) => {
+    if (!n) return false;
+    const typeLower = (n.type || '').toLowerCase();
+    const titleLower = (n.title || '').toLowerCase();
+    const msgLower = (n.message || '').toLowerCase();
+    const urlLower = (n.actionUrl || '').toLowerCase();
+
+    return (
+      typeLower === 'dispute' ||
+      typeLower === 'complaint' ||
+      urlLower.includes('tab=complaints') ||
+      urlLower.includes('tab=disputes') ||
+      urlLower.includes('/complaints') ||
+      titleLower.includes('help desk') ||
+      titleLower.includes('complaint') ||
+      titleLower.includes('ticket') ||
+      titleLower.includes('dispute') ||
+      titleLower.includes('support') ||
+      msgLower.includes('help desk') ||
+      msgLower.includes('complaint ticket') ||
+      msgLower.includes('ticket #') ||
+      msgLower.includes('submitted to support')
+    );
+  };
+
   const handleNotificationCardClick = (e, n) => {
     if (!n.isRead && !n.read) {
       markRead(n._id);
+    }
+
+    if (isHelpDeskNotification(n)) {
+      if (typeof onSelectTab === 'function') {
+        onSelectTab('complaints');
+        return;
+      } else {
+        localStorage.setItem('parent_activeTab', 'complaints');
+        window.dispatchEvent(new Event('storage'));
+        window.location.href = '/dashboard/parent#complaints';
+        return;
+      }
     }
 
     if (n.actionUrl) {
@@ -279,17 +327,18 @@ export const ParentNotificationsTab = ({ onUnreadChange, onSelectTab }) => {
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      {n.actionUrl ? (
+                      {n.actionUrl || isHelpDeskNotification(n) ? (
                         <a
-                          href={n.actionUrl}
+                          href={n.actionUrl || '#'}
                           onClick={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             handleNotificationCardClick(e, n);
                           }}
                           className="dash-btn dash-btn-primary"
-                          style={{ background: '#7e22ce', fontSize: '11px', padding: '3px 10px' }}
+                          style={{ background: '#7e22ce', fontSize: '11px', padding: '3px 10px', cursor: 'pointer' }}
                         >
-                          {n.type === 'fee' || n.type === 'payment' ? 'Pay Now' : 'View Details'}
+                          {isHelpDeskNotification(n) ? 'View Ticket' : n.type === 'fee' || n.type === 'payment' ? 'Pay Now' : 'View Details'}
                         </a>
                       ) : (
                         <div></div>

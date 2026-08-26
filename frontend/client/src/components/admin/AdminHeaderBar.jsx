@@ -1,11 +1,22 @@
 import React from 'react';
 
-export const AdminHeaderBar = ({ onOpenAnnouncement, onExportPdf, onOpenScheduleClass }) => {
+export const AdminHeaderBar = ({ onOpenAnnouncement, onExportPdf, onOpenScheduleClass, onToggleMobileMenu }) => {
   return (
     <div className="dashboard-header-bar">
-      <div className="dashboard-title">
-        <h1>Platform Control & Governance</h1>
-        <p>Monitor platform statistics, verify tutor applications, manage users, and review financial metrics.</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <button
+          type="button"
+          className="mobile-hamburger-btn"
+          onClick={onToggleMobileMenu}
+          aria-label="Open Admin Management Menu"
+          title="Open Admin Management Menu"
+        >
+          <i className="fa-solid fa-bars"></i>
+        </button>
+        <div className="dashboard-title">
+          <h1>Platform Control & Governance</h1>
+          <p>Monitor platform statistics, verify tutor applications, manage users, and review financial metrics.</p>
+        </div>
       </div>
       <div className="dashboard-actions">
         <button className="dash-btn dash-btn-outline" onClick={onOpenScheduleClass}>

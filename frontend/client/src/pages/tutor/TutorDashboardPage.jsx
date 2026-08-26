@@ -16,6 +16,7 @@ import { RequestCertificateModal } from '../../components/tutor/modals/RequestCe
 import { EditTutorProfileModal } from '../../components/tutor/modals/EditTutorProfileModal';
 
 import { NotificationsTab } from '../../components/common/NotificationsTab';
+import { ReferralSection } from '../../components/common/ReferralSection';
 import { useDashboardTab } from '../../hooks/useDashboardTab';
 
 const TUTOR_VALID_TABS = [
@@ -26,6 +27,7 @@ const TUTOR_VALID_TABS = [
   'assignments',
   'chat',
   'rates-availability',
+  'referrals',
   'edit-profile',
   'complaints',
 ];
@@ -42,6 +44,7 @@ export const TutorDashboardPage = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [payoutHistory, setPayoutHistory] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [referredUsers, setReferredUsers] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
@@ -61,6 +64,37 @@ export const TutorDashboardPage = () => {
 
   useEffect(() => {
     loadDashboardData();
+
+    const handleCustomEvent = (e) => {
+      if (e.detail && typeof e.detail.unreadCount === 'number') {
+        setUnreadNotifications(e.detail.unreadCount);
+        return;
+      }
+      fetchUnreadNotifications();
+    };
+
+    window.addEventListener('unreadCountUpdated', handleCustomEvent);
+    window.addEventListener('refreshNotifications', fetchUnreadNotifications);
+
+    if (window.socket) {
+      window.socket.on('receiveNotification', fetchUnreadNotifications);
+      window.socket.on('unreadCountChanged', (data) => {
+        if (data && typeof data.unreadCount === 'number') {
+          setUnreadNotifications(data.unreadCount);
+        } else {
+          fetchUnreadNotifications();
+        }
+      });
+    }
+
+    return () => {
+      window.removeEventListener('unreadCountUpdated', handleCustomEvent);
+      window.removeEventListener('refreshNotifications', fetchUnreadNotifications);
+      if (window.socket) {
+        window.socket.off('receiveNotification', fetchUnreadNotifications);
+        window.socket.off('unreadCountChanged');
+      }
+    };
   }, []);
 
   const loadDashboardData = async () => {
@@ -108,6 +142,16 @@ export const TutorDashboardPage = () => {
           if (accepted.length > 0) {
             setSchedule((prev) => (prev.length > 0 ? prev : accepted));
           }
+        }
+
+        // 4. Load Referral History
+        try {
+          const refRes = await tutorApi.getReferrals();
+          if (refRes.success && refRes.referredUsers) {
+            setReferredUsers(refRes.referredUsers);
+          }
+        } catch (rErr) {
+          console.error('Error fetching tutor referrals:', rErr);
         }
       }
     } catch (err) {
@@ -252,6 +296,10 @@ export const TutorDashboardPage = () => {
             pendingRequests={pendingRequests}
             payoutHistory={payoutHistory}
             reviews={reviews}
+            referralCode={stats?.referralCode || tutorUser?.referralCode || ''}
+            referralEarnings={stats?.referralEarnings || 0}
+            referredCount={stats?.referredCount || 0}
+            referredUsers={referredUsers}
             onAcceptRequest={handleAcceptRequest}
             onRejectRequest={handleRejectRequest}
             onRequestPayout={() => setIsPayoutModalOpen(true)}
@@ -285,6 +333,18 @@ export const TutorDashboardPage = () => {
           <TutorRatesTab />
         )}
 
+        {activeTab === 'referrals' && (
+          <div className="dash-tab-content" style={{ display: 'block', maxWidth: '850px', margin: '0 auto' }}>
+            <ReferralSection
+              referralCode={stats?.referralCode || tutorUser?.referralCode || ''}
+              referralEarnings={stats?.referralEarnings || 0}
+              referredCount={stats?.referredCount || 0}
+              referredUsers={referredUsers}
+              userRole="tutor"
+            />
+          </div>
+        )}
+
         {activeTab === 'complaints' && (
           <UserComplaintsTab roleName="Tutor" />
         )}
@@ -292,8 +352,17 @@ export const TutorDashboardPage = () => {
     );
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
     <div className="dashboard-wrapper">
+      {/* MOBILE BACKDROP OVERLAY */}
+      <div
+        className={`sidebar-overlay ${isMobileMenuOpen ? 'active' : ''}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+
       {/* SIDEBAR */}
       <TutorSidebar
         activeTab={activeTab}
@@ -309,6 +378,8 @@ export const TutorDashboardPage = () => {
         tutorEmail={tutorEmail}
         unreadCount={0}
         unreadNotificationsCount={unreadNotifications}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* MAIN CONTENT AREA */}
@@ -318,6 +389,7 @@ export const TutorDashboardPage = () => {
           onEditProfile={() => setIsEditProfileModalOpen(true)}
           onRequestPayout={() => setIsPayoutModalOpen(true)}
           onRequestCertificate={() => setIsCertModalOpen(true)}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
         {/* TAB CONTENT RENDERING */}

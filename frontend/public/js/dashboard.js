@@ -1854,27 +1854,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 });
 
-// Override Wallet Topup to write to MongoDB
+// Redirect legacy Wallet Topup to verified Razorpay flow
 window.addWalletBalance = async function(amount) {
-    try {
-        const response = await fetch("/api/student/wallet/topup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount }),
-        });
-        const data = await response.json();
-        if (data.success) {
-            const walletEl = document.getElementById('walletBalanceDisplay');
-            if (walletEl) {
-                walletEl.innerText = `₹${data.walletBalance.toFixed(2)}`;
-            }
-            showToast(`✅ ${data.message}`);
-        } else {
-            showToast(`❌ ${data.message || "Wallet topup failed."}`);
-        }
-    } catch (err) {
-        console.error(err);
-        showToast("❌ Wallet topup error. Please try again.");
+    if (typeof window.triggerRazorpayWalletTopup === 'function') {
+        return window.triggerRazorpayWalletTopup(amount);
     }
 };
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-
 export const NotificationsTab = ({ userRole = 'student', onSelectTab }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +20,9 @@ export const NotificationsTab = ({ userRole = 'student', onSelectTab }) => {
       const data = await res.json();
       if (data.success && Array.isArray(data.notifications)) {
         setNotifications(data.notifications);
+        if (typeof data.unreadCount === 'number') {
+          dispatchUnreadCountUpdate(data.unreadCount);
+        }
       } else {
         setError(data.message || 'Failed to load notifications.');
       }
@@ -32,15 +34,27 @@ export const NotificationsTab = ({ userRole = 'student', onSelectTab }) => {
     }
   };
 
+  const dispatchUnreadCountUpdate = (count) => {
+    window.dispatchEvent(
+      new CustomEvent('unreadCountUpdated', {
+        detail: { unreadCount: count, role: userRole },
+      })
+    );
+  };
+
   const handleMarkAsRead = async (id) => {
     try {
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, isRead: true, read: true } : n))
       );
-      await fetch(`/api/notifications/${id}/read`, {
+      const res = await fetch(`/api/notifications/${id}/read`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
+      const data = await res.json();
+      if (data.success && typeof data.unreadCount === 'number') {
+        dispatchUnreadCountUpdate(data.unreadCount);
+      }
     } catch (err) {
       console.error('Mark Read Error:', err);
     }
@@ -51,10 +65,14 @@ export const NotificationsTab = ({ userRole = 'student', onSelectTab }) => {
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, isRead: true, read: true }))
       );
-      await fetch('/api/notifications/read-all', {
+      const res = await fetch('/api/notifications/read-all', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
+      const data = await res.json();
+      if (data.success && typeof data.unreadCount === 'number') {
+        dispatchUnreadCountUpdate(data.unreadCount);
+      }
     } catch (err) {
       console.error('Mark All Read Error:', err);
     }
@@ -64,13 +82,43 @@ export const NotificationsTab = ({ userRole = 'student', onSelectTab }) => {
     if (e) e.stopPropagation();
     try {
       setNotifications((prev) => prev.filter((n) => n._id !== id));
-      await fetch(`/api/notifications/${id}`, {
+      const res = await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
       });
+      const data = await res.json();
+      if (data.success && typeof data.unreadCount === 'number') {
+        dispatchUnreadCountUpdate(data.unreadCount);
+      }
     } catch (err) {
       console.error('Delete Notification Error:', err);
     }
+  };
+
+  const isHelpDeskNotification = (item) => {
+    if (!item) return false;
+    const typeLower = (item.type || '').toLowerCase();
+    const titleLower = (item.title || '').toLowerCase();
+    const msgLower = (item.message || '').toLowerCase();
+    const urlLower = (item.actionUrl || '').toLowerCase();
+
+    return (
+      typeLower === 'dispute' ||
+      typeLower === 'complaint' ||
+      urlLower.includes('tab=complaints') ||
+      urlLower.includes('tab=disputes') ||
+      urlLower.includes('/complaints') ||
+      urlLower.includes('/disputes') ||
+      titleLower.includes('help desk') ||
+      titleLower.includes('complaint') ||
+      titleLower.includes('ticket') ||
+      titleLower.includes('dispute') ||
+      titleLower.includes('support') ||
+      msgLower.includes('help desk') ||
+      msgLower.includes('complaint ticket') ||
+      msgLower.includes('ticket #') ||
+      msgLower.includes('submitted to support')
+    );
   };
 
   const handleNotificationCardClick = (e, item) => {
@@ -79,7 +127,22 @@ export const NotificationsTab = ({ userRole = 'student', onSelectTab }) => {
       handleMarkAsRead(item._id);
     }
 
-    // 2. Perform navigation / tab redirection if actionUrl exists
+    // 2. Help Desk / Complaint notification redirect logic
+    if (isHelpDeskNotification(item)) {
+      const targetTab = userRole === 'admin' ? 'disputes' : 'complaints';
+      if (typeof onSelectTab === 'function') {
+        onSelectTab(targetTab);
+        return;
+      } else {
+        const roleKey = `${userRole || 'student'}_activeTab`;
+        localStorage.setItem(roleKey, targetTab);
+        window.dispatchEvent(new Event('storage'));
+        window.location.href = `/dashboard/${userRole || 'student'}#${targetTab}`;
+        return;
+      }
+    }
+
+    // 3. Perform navigation / tab redirection if actionUrl exists
     if (item.actionUrl) {
       if (item.actionUrl.includes('tab=')) {
         const tabParam = item.actionUrl.split('tab=')[1]?.split('&')[0];
@@ -361,17 +424,25 @@ export const NotificationsTab = ({ userRole = 'student', onSelectTab }) => {
 
                       {/* ACTION BUTTON & ITEM ACTIONS */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                        {item.actionUrl ? (
+                        {item.actionUrl || isHelpDeskNotification(item) ? (
                           <a
-                            href={item.actionUrl}
+                            href={item.actionUrl || '#'}
                             onClick={(e) => {
                               e.stopPropagation();
+                              e.preventDefault();
                               handleNotificationCardClick(e, item);
                             }}
                             className="dash-btn dash-btn-primary"
-                            style={{ padding: '4px 12px', fontSize: '12px', textDecoration: 'none' }}
+                            style={{ padding: '4px 12px', fontSize: '12px', textDecoration: 'none', cursor: 'pointer' }}
                           >
-                            {item.type === 'tutor_request' ? 'View Request' : item.type === 'fee' || item.type === 'payment' ? 'Pay Now' : 'View Details'} <i className="fa-solid fa-arrow-right"></i>
+                            {isHelpDeskNotification(item)
+                              ? 'View Ticket'
+                              : item.type === 'tutor_request'
+                              ? 'View Request'
+                              : item.type === 'fee' || item.type === 'payment'
+                              ? 'Pay Now'
+                              : 'View Details'}{' '}
+                            <i className="fa-solid fa-arrow-right"></i>
                           </a>
                         ) : <div />}
 

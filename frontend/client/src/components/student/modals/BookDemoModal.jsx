@@ -1,18 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { studentApi } from '../../../services/studentApi';
+import { isDemoCompletedForTutor, isPendingDemoForTutor } from '../../../utils/demoEligibility';
 
-export const BookDemoModal = ({ isOpen, onClose, tutor, onSuccess }) => {
+export const BookDemoModal = ({
+  isOpen,
+  onClose,
+  tutor,
+  onSuccess,
+  onOpenRegularPayment,
+  completedDemoTutorIds = [],
+  pendingDemoTutorIds = [],
+}) => {
   const [address, setAddress] = useState('');
   const [message, setMessage] = useState('');
   const [isHomeVisit, setIsHomeVisit] = useState(false);
   const [isTrial, setIsTrial] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pendingWarning, setPendingWarning] = useState('');
+
+  const isDemoUsed = isDemoCompletedForTutor(tutor, completedDemoTutorIds);
+  const isDemoPending = isPendingDemoForTutor(tutor, pendingDemoTutorIds);
+  const tutorName = tutor && tutor.user ? tutor.user.name || 'Tutor' : 'Tutor';
+  const subjects = tutor && tutor.subjects ? tutor.subjects.join(', ') : 'General Subjects';
+
+  useEffect(() => {
+    if (isOpen) {
+      // Clear stale frontend error/warning state from previously opened tutor modals
+      setError('');
+      setAddress('');
+      setMessage('');
+      setIsHomeVisit(false);
+      setLoading(false);
+
+      if (isDemoUsed) {
+        setIsTrial(false);
+        setPendingWarning('');
+      } else if (isDemoPending) {
+        setIsTrial(false);
+        setPendingWarning(`You already have a pending demo class request for ${tutorName}.`);
+      } else {
+        setIsTrial(true);
+        setPendingWarning('');
+      }
+    }
+  }, [isOpen, tutor, isDemoUsed, isDemoPending, tutorName]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isTrial && onOpenRegularPayment) {
+      onClose();
+      onOpenRegularPayment(tutor);
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -40,8 +84,7 @@ export const BookDemoModal = ({ isOpen, onClose, tutor, onSuccess }) => {
     }
   };
 
-  const tutorName = tutor && tutor.user ? tutor.user.name || 'Tutor' : 'Tutor';
-  const subjects = tutor && tutor.subjects ? tutor.subjects.join(', ') : 'General Subjects';
+  const isDemoDisabled = isDemoUsed || isDemoPending;
 
   return (
     <div className="tr-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
@@ -63,6 +106,20 @@ export const BookDemoModal = ({ isOpen, onClose, tutor, onSuccess }) => {
           </div>
         </div>
 
+        {isDemoUsed && (
+          <div style={{ padding: '10px 14px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '8px', color: '#1e40af', fontSize: '13px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+            <i className="fa-solid fa-circle-info" style={{ color: '#2563eb' }}></i>
+            <span>You have already attended a demo class with this tutor. You can book Regular Classes instead.</span>
+          </div>
+        )}
+
+        {!isDemoUsed && pendingWarning && (
+          <div style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', color: '#c2410c', fontSize: '13px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+            <i className="fa-solid fa-circle-exclamation" style={{ color: '#f97316' }}></i>
+            <span>{pendingWarning}</span>
+          </div>
+        )}
+
         {error && (
           <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', color: '#991b1b', fontSize: '13px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <i className="fa-solid fa-circle-exclamation"></i>
@@ -74,9 +131,9 @@ export const BookDemoModal = ({ isOpen, onClose, tutor, onSuccess }) => {
           <div style={{ marginBottom: '14px' }}>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Session Type</label>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <label style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${isTrial ? '#0284c7' : '#cbd5e1'}`, background: isTrial ? '#f0f9ff' : '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600 }}>
-                <input type="radio" checked={isTrial} onChange={() => setIsTrial(true)} />
-                <span>Free / Trial Demo Class</span>
+              <label style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${isTrial ? '#0284c7' : '#cbd5e1'}`, background: isTrial ? '#f0f9ff' : '#f8fafc', cursor: isDemoDisabled ? 'not-allowed' : 'pointer', opacity: isDemoDisabled ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600 }}>
+                <input type="radio" checked={isTrial} onChange={() => !isDemoDisabled && setIsTrial(true)} disabled={isDemoDisabled} />
+                <span>Free / Trial Demo Class {isDemoUsed ? '(Used ✓)' : isDemoPending ? '(Pending ⌛)' : ''}</span>
               </label>
               <label style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${!isTrial ? '#0284c7' : '#cbd5e1'}`, background: !isTrial ? '#f0f9ff' : '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600 }}>
                 <input type="radio" checked={!isTrial} onChange={() => setIsTrial(false)} />
@@ -122,7 +179,7 @@ export const BookDemoModal = ({ isOpen, onClose, tutor, onSuccess }) => {
               Cancel
             </button>
             <button type="submit" className="dash-btn dash-btn-primary" disabled={loading}>
-              {loading ? <span><i className="fa-solid fa-spinner fa-spin"></i> Submitting...</span> : 'Send Booking Request'}
+              {loading ? <span><i className="fa-solid fa-spinner fa-spin"></i> Submitting...</span> : (!isTrial ? <span><i className="fa-solid fa-credit-card"></i> Proceed to Payment</span> : 'Send Booking Request')}
             </button>
           </div>
         </form>

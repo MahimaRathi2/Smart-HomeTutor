@@ -1,9 +1,14 @@
 import React from 'react';
 
-export const TutorSidebar = ({ activeTab, onSelectTab, tutorName, tutorEmail, unreadCount = 0, unreadNotificationsCount = 0 }) => {
+export const TutorSidebar = ({ activeTab, onSelectTab, tutorName, tutorEmail, unreadCount = 0, unreadNotificationsCount = 0, isOpenMobile, onCloseMobile }) => {
   const getInitials = (name) => {
     if (!name) return 'TU';
     return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const handleSelectTab = (id) => {
+    onSelectTab(id);
+    if (onCloseMobile) onCloseMobile();
   };
 
   const navItems = [
@@ -14,12 +19,24 @@ export const TutorSidebar = ({ activeTab, onSelectTab, tutorName, tutorEmail, un
     { id: 'assignments', label: 'Homework & Notes', icon: 'fa-file-arrow-up' },
     { id: 'chat', label: 'Student Chat', icon: 'fa-comments', badge: unreadCount },
     { id: 'rates-availability', label: 'Subjects & Rates', icon: 'fa-sliders' },
+    { id: 'referrals', label: 'Referral Program', icon: 'fa-gift' },
     { id: 'edit-profile', label: 'Edit Profile', icon: 'fa-user-pen' },
     { id: 'complaints', label: 'Support & Complaints', icon: 'fa-circle-exclamation' },
   ];
 
   return (
-    <aside className="dashboard-sidebar">
+    <aside className={`dashboard-sidebar ${isOpenMobile ? 'mobile-open' : ''}`}>
+      {onCloseMobile && (
+        <button
+          type="button"
+          className="mobile-sidebar-close-btn"
+          onClick={onCloseMobile}
+          aria-label="Close Tutor Workspace Menu"
+          title="Close Menu"
+        >
+          <i className="fa-solid fa-xmark"></i>
+        </button>
+      )}
       <div>
         <div className="sidebar-user">
           <div className="user-avatar" style={{ background: '#0f2a4a' }}>
@@ -38,7 +55,7 @@ export const TutorSidebar = ({ activeTab, onSelectTab, tutorName, tutorEmail, un
             <li
               key={item.id}
               className={`dash-tab-btn ${activeTab === item.id ? 'active' : ''}`}
-              onClick={() => onSelectTab(item.id)}
+              onClick={() => handleSelectTab(item.id)}
               style={{ cursor: 'pointer' }}
             >
               <a href={`#${item.id}`} onClick={(e) => e.preventDefault()}>

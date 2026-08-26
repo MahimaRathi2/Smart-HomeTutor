@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { studentApi } from '../../../services/studentApi';
+import { isDemoCompletedForTutor } from '../../../utils/demoEligibility';
 
-export const FindTutorsTab = ({ onBookTutor }) => {
+export const FindTutorsTab = ({ onBookTutor, onRegularClass }) => {
   const [tutors, setTutors] = useState([]);
+  const [completedDemoTutorIds, setCompletedDemoTutorIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     search: '',
@@ -19,11 +21,19 @@ export const FindTutorsTab = ({ onBookTutor }) => {
   const loadTutors = async () => {
     setLoading(true);
     try {
-      const data = await studentApi.getTutors(filters);
+      const [data, demoData] = await Promise.all([
+        studentApi.getTutors(filters),
+        studentApi.getCompletedDemoTutors(),
+      ]);
+
       if (data.success && data.tutors) {
         setTutors(data.tutors);
       } else {
         setTutors([]);
+      }
+
+      if (demoData.success && demoData.completedDemoTutorIds) {
+        setCompletedDemoTutorIds(demoData.completedDemoTutorIds);
       }
     } catch (err) {
       console.error(err);
@@ -223,12 +233,32 @@ export const FindTutorsTab = ({ onBookTutor }) => {
                   <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f2a4a' }}>
                     ₹{tutor.fee || 500}<small style={{ fontSize: '11px', fontWeight: 400, color: '#64748b' }}>/hr</small>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <a href={`/tutor/${tutor._id}`} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-outline" style={{ fontSize: '12px', padding: '6px 10px', textDecoration: 'none' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <a href={`/tutor/${tutor._id}`} target="_blank" rel="noopener noreferrer" className="dash-btn dash-btn-outline" style={{ fontSize: '11.5px', padding: '5px 8px', textDecoration: 'none' }}>
                       Profile
                     </a>
-                    <button type="button" className="dash-btn dash-btn-primary" style={{ fontSize: '12px', padding: '6px 12px' }} onClick={() => onBookTutor(tutor)}>
-                      Book Demo
+                    {isDemoCompletedForTutor(tutor, completedDemoTutorIds) ? (
+                      <button
+                        type="button"
+                        className="dash-btn dash-btn-outline"
+                        disabled
+                        style={{ fontSize: '11.5px', padding: '5px 10px', opacity: 0.7, cursor: 'not-allowed', background: '#f1f5f9', color: '#64748b', borderColor: '#cbd5e1' }}
+                        title="You have already attended a demo class with this tutor. You can book Regular Classes instead."
+                      >
+                        Demo Completed ✓
+                      </button>
+                    ) : (
+                      <button type="button" className="dash-btn dash-btn-outline" style={{ fontSize: '11.5px', padding: '5px 10px' }} onClick={() => onBookTutor(tutor)}>
+                        Book Demo
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="dash-btn dash-btn-primary"
+                      style={{ fontSize: '11.5px', padding: '5px 10px', background: '#0284c7', borderColor: '#0284c7' }}
+                      onClick={() => onRegularClass ? onRegularClass(tutor) : onBookTutor(tutor)}
+                    >
+                      Regular Classes
                     </button>
                   </div>
                 </div>
